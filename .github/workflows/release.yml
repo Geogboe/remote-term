@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset_os }} ${{ matrix.asset_arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset_os: linux
+            asset_arch: amd64
+            binary_ext: ''
+            archive_ext: tar.gz
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            asset_os: darwin
+            asset_arch: amd64
+            binary_ext: ''
+            archive_ext: tar.gz
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            asset_os: darwin
+            asset_arch: arm64
+            binary_ext: ''
+            archive_ext: tar.gz
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_os: windows
+            asset_arch: amd64
+            binary_ext: '.exe'
+            archive_ext: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = '${{ github.ref_name }}'
+          $name = 'rterm_' + $tag + '_${{ matrix.asset_os }}_${{ matrix.asset_arch }}'
+          $packageDir = Join-Path $PWD $name
+          New-Item -ItemType Directory -Path $packageDir | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/rterm${{ matrix.binary_ext }}" (Join-Path $packageDir "rterm${{ matrix.binary_ext }}")
+          New-Item -ItemType Directory -Path dist | Out-Null
+          if ('${{ matrix.archive_ext }}' -eq 'zip') {
+            Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath "dist/$name.zip" -Force
+          } else {
+            tar -czf "dist/$name.tar.gz" -C $packageDir rterm
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rterm-${{ matrix.asset_os }}-${{ matrix.asset_arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish prerelease
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Release notes
+        run: |
+          cat > RELEASE_NOTES.md <<'EOF'
+          ## remote-term ${{ github.ref_name }}
+
+          Prerelease build of remote-term. The CLI executable is `rterm`.
+
+          ### Install
+
+          Linux/macOS:
+
+          ```sh
+          curl -fsSL https://raw.githubusercontent.com/Geogboe/rterm/main/install.sh | sh
+          ```
+
+          Windows PowerShell:
+
+          ```powershell
+          irm https://raw.githubusercontent.com/Geogboe/rterm/main/install.ps1 | iex
+          ```
+
+          ### Notes
+
+          - `rterm` runs a command inside a managed PTY and exposes the same terminal session to a tokenized browser view.
+          - Browser write access remains opt-in with `--write`.
+          - LAN binding remains opt-in with `--lan`.
+          EOF
+
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "remote-term ${GITHUB_REF_NAME}" \
+            --notes-file RELEASE_NOTES.md \
+            --prerelease

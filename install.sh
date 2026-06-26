@@ -24,6 +24,53 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "$1 is required"
 }
 
+curl_fetch() {
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    curl -H "Authorization: Bearer ${GITHUB_TOKEN}" "$@"
+  elif [ -n "${GH_TOKEN:-}" ]; then
+    curl -H "Authorization: Bearer ${GH_TOKEN}" "$@"
+  else
+    curl "$@"
+  fi
+}
+
+has_github_token() {
+  [ -n "${GITHUB_TOKEN:-}" ] || [ -n "${GH_TOKEN:-}" ]
+}
+
+github_asset_api_url() {
+  name="$1"
+  curl_fetch -fsSL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" \
+    | awk -v wanted="$name" '
+      /"url":/ {
+        url = $0
+        sub(/^[[:space:]]*"url":[[:space:]]*"/, "", url)
+        sub(/",?[[:space:]]*$/, "", url)
+      }
+      /"name":/ {
+        name = $0
+        sub(/^[[:space:]]*"name":[[:space:]]*"/, "", name)
+        sub(/",?[[:space:]]*$/, "", name)
+        if (name == wanted) {
+          print url
+          exit
+        }
+      }
+    '
+}
+
+download_asset() {
+  name="$1"
+  path="$2"
+  if has_github_token; then
+    asset_url="$(github_asset_api_url "$name")"
+    [ -n "$asset_url" ] || die "release asset not found: $name"
+    curl_fetch -H "Accept: application/octet-stream" -fsSL -o "$path" "$asset_url"
+  else
+    curl_fetch -fsSL -o "$path" "${BASE_URL}/${name}"
+  fi
+}
+
 DEBUG="$(get_env "${PREFIX}_DEBUG")"
 if [ -z "$DEBUG" ]; then
   DEBUG="${INSTALLER_DEBUG:-}"
@@ -50,7 +97,7 @@ if [ -z "$TAG" ]; then
 fi
 if [ -z "$TAG" ]; then
   TAG="$(
-    curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=10" \
+    curl_fetch -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=10" \
       | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' \
       | head -n 1
   )"
@@ -65,8 +112,8 @@ trap 'rm -rf "$TMP"' EXIT
 log "release tag: $TAG"
 log "archive: $ARCHIVE"
 
-curl -fsSL -o "${TMP}/${ARCHIVE}" "${BASE_URL}/${ARCHIVE}"
-curl -fsSL -o "${TMP}/checksums.txt" "${BASE_URL}/checksums.txt"
+download_asset "$ARCHIVE" "${TMP}/${ARCHIVE}"
+download_asset "checksums.txt" "${TMP}/checksums.txt"
 
 CHECKSUM_LINE="$(grep "[[:space:]]${ARCHIVE}$" "${TMP}/checksums.txt" || true)"
 [ -n "$CHECKSUM_LINE" ] || die "checksum not found for ${ARCHIVE}"

@@ -17,19 +17,19 @@ default and can write only when `--write` is supplied.
 Linux/macOS:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Geogboe/rterm/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Geogboe/remote-term/main/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/Geogboe/rterm/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Geogboe/remote-term/main/install.ps1 | iex
 ```
 
 Manual downloads are available from the latest GitHub release:
 
 ```text
-https://github.com/Geogboe/rterm/releases
+https://github.com/Geogboe/remote-term/releases
 ```
 
 ## Current Commands

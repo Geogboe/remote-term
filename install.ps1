@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'Geogboe/rterm'
+$Repo = 'Geogboe/remote-term'
 $Binary = 'rterm'
 $Prefix = $Binary.ToUpperInvariant().Replace('-', '_')
 

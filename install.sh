@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO="Geogboe/rterm"
+REPO="Geogboe/remote-term"
 BINARY="rterm"
 PREFIX="RTERM"
 

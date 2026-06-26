@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  SMOKE_COMMAND: pwsh -NoProfile -Command "Write-Output rterm-smoke"
+  SMOKE_EXIT_COMMAND: pwsh -NoProfile -Command "Write-Output rterm-smoke; exit 7"
+  RUN_COMMAND: '{{default "pwsh" .CLI_ARGS}}'
+
+tasks:
+  default:
+    desc: Run tests
+    cmds:
+      - task: test
+
+  test:
+    desc: Run Rust tests
+    cmds:
+      - cargo test
+
+  fmt:
+    desc: Format Rust code
+    cmds:
+      - cargo fmt --all
+
+  lint:
+    desc: Run Rust lint checks
+    cmds:
+      - cargo clippy --all-targets --all-features -- -D warnings
+
+  web:install:
+    desc: Install web dependencies
+    dir: web
+    cmds:
+      - npm install
+
+  web:build:
+    desc: Build embedded web assets
+    dir: web
+    cmds:
+      - npm run build
+
+  build:
+    desc: Build embedded web assets and debug binary
+    deps:
+      - web:build
+    cmds:
+      - cargo build
+
+  build:release:
+    desc: Build embedded web assets and release binary
+    deps:
+      - web:build
+    cmds:
+      - cargo build --release
+
+  run:
+    desc: Build and run rterm locally; pass child command after --
+    deps:
+      - build
+    cmds:
+      - cargo run -- --write -- {{.RUN_COMMAND}}
+
+  run:lan:
+    desc: Build and run rterm on LAN; pass child command after --
+    deps:
+      - build
+    cmds:
+      - cargo run -- --lan --write -- {{.RUN_COMMAND}}
+
+  smoke:
+    desc: Run a child exit-code smoke test
+    cmds:
+      - cargo run -- -- {{.SMOKE_COMMAND}}
+
+  smoke:exit-code:
+    desc: Run a child exit-code propagation smoke test
+    cmds:
+      - cargo run -- -- {{.SMOKE_EXIT_COMMAND}}
+
+  smoke:web:
+    desc: Probe tokenized web routes on localhost
+    cmds:
+      - cargo build
+      - pwsh -NoProfile -File scripts/smoke-web.ps1

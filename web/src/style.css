@@ -1,0 +1,44 @@
+:root {
+  color-scheme: dark;
+  background: #101214;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: #101214;
+  color: #f2f4f8;
+}
+
+#app {
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+#terminal {
+  min-height: 0;
+  padding: 8px;
+}
+
+#keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #30343a;
+  background: #171a1f;
+}
+
+button {
+  min-height: 40px;
+  border: 1px solid #48515c;
+  border-radius: 4px;
+  background: #222831;
+  color: #f2f4f8;
+  font: 14px system-ui, sans-serif;
+}

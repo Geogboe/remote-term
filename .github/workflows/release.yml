@@ -46,6 +46,12 @@ jobs:
             asset_arch: amd64
             binary_ext: '.exe'
             archive_ext: zip
+          - runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            asset_os: windows
+            asset_arch: arm64
+            binary_ext: '.exe'
+            archive_ext: zip
 
     steps:
       - uses: actions/checkout@v4

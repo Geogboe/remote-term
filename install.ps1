@@ -25,10 +25,10 @@ if (-not [System.Environment]::Is64BitOperatingSystem) {
     throw '32-bit Windows is not supported'
 }
 
-if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::X64) {
-    $Arch = 'amd64'
-} else {
-    throw "unsupported Windows architecture: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
+switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+    ([System.Runtime.InteropServices.Architecture]::X64) { $Arch = 'amd64'; break }
+    ([System.Runtime.InteropServices.Architecture]::Arm64) { $Arch = 'arm64'; break }
+    default { throw "unsupported Windows architecture: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)" }
 }
 
 $Tag = Get-EnvValue "${Prefix}_VERSION"

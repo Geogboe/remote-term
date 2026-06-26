@@ -22,6 +22,12 @@ jobs:
             asset_arch: amd64
             binary_ext: ''
             archive_ext: tar.gz
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            asset_os: linux
+            asset_arch: amd64_musl
+            binary_ext: ''
+            archive_ext: tar.gz
           - runner: macos-14
             target: x86_64-apple-darwin
             asset_os: darwin
@@ -47,6 +53,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Install musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
@@ -101,13 +113,13 @@ jobs:
           Linux/macOS:
 
           ```sh
-          curl -fsSL https://raw.githubusercontent.com/Geogboe/rterm/main/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/Geogboe/remote-term/main/install.sh | sh
           ```
 
           Windows PowerShell:
 
           ```powershell
-          irm https://raw.githubusercontent.com/Geogboe/rterm/main/install.ps1 | iex
+          irm https://raw.githubusercontent.com/Geogboe/remote-term/main/install.ps1 | iex
           ```
 
           ### Notes

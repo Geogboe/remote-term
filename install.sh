@@ -64,7 +64,7 @@ download_asset() {
   path="$2"
   if has_github_token; then
     asset_url="$(github_asset_api_url "$name")"
-    [ -n "$asset_url" ] || die "release asset not found: $name"
+    [ -n "$asset_url" ] || return 1
     curl_fetch -H "Accept: application/octet-stream" -fsSL -o "$path" "$asset_url"
   else
     curl_fetch -fsSL -o "$path" "${BASE_URL}/${name}"
@@ -104,7 +104,14 @@ if [ -z "$TAG" ]; then
 fi
 [ -n "$TAG" ] || die "could not find a GitHub release; set ${PREFIX}_VERSION or INSTALLER_VERSION"
 
-ARCHIVE="${BINARY}_${TAG}_${OS}_${ARCH}.tar.gz"
+ARCHIVE_ARCH="$ARCH"
+FALLBACK_ARCHIVE=""
+if [ "$OS" = "linux" ] && [ "$ARCH" = "amd64" ]; then
+  ARCHIVE_ARCH="amd64_musl"
+  FALLBACK_ARCHIVE="${BINARY}_${TAG}_${OS}_${ARCH}.tar.gz"
+fi
+
+ARCHIVE="${BINARY}_${TAG}_${OS}_${ARCHIVE_ARCH}.tar.gz"
 BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -112,7 +119,12 @@ trap 'rm -rf "$TMP"' EXIT
 log "release tag: $TAG"
 log "archive: $ARCHIVE"
 
-download_asset "$ARCHIVE" "${TMP}/${ARCHIVE}"
+if ! download_asset "$ARCHIVE" "${TMP}/${ARCHIVE}"; then
+  [ -n "$FALLBACK_ARCHIVE" ] || die "release asset not found: $ARCHIVE"
+  log "falling back to $FALLBACK_ARCHIVE"
+  ARCHIVE="$FALLBACK_ARCHIVE"
+  download_asset "$ARCHIVE" "${TMP}/${ARCHIVE}"
+fi
 download_asset "checksums.txt" "${TMP}/checksums.txt"
 
 CHECKSUM_LINE="$(grep "[[:space:]]${ARCHIVE}$" "${TMP}/checksums.txt" || true)"

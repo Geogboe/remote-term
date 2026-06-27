@@ -8,8 +8,20 @@
   </head>
   <body>
     <main id="app">
-      <div id="terminal"></div>
-      <div id="keys" aria-label="Terminal keys"></div>
+      <header id="session-bar">
+        <div class="identity">
+          <span class="prompt-mark" aria-hidden="true">&gt;_</span>
+          <strong>rterm</strong>
+        </div>
+        <div class="session-state">
+          <span id="connection-dot" aria-hidden="true"></span>
+          <span id="connection-status" role="status" aria-live="polite">Connecting</span>
+          <span class="divider" aria-hidden="true"></span>
+          <span id="write-mode">Checking access</span>
+        </div>
+      </header>
+      <section id="terminal" aria-label="Remote terminal"></section>
+      <nav id="keys" aria-label="Terminal keys"></nav>
     </main>
     <script>
       window.RTERM_TOKEN = "__TOKEN__";

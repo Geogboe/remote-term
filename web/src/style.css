@@ -1,6 +1,7 @@
 :root {
   color-scheme: dark;
-  background: #101214;
+  background: #0b0e12;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 }
 
 * {
@@ -10,35 +11,137 @@
 body {
   margin: 0;
   min-height: 100svh;
-  background: #101214;
-  color: #f2f4f8;
+  overflow: hidden;
+  background: #0b0e12;
+  color: #dce5ef;
 }
 
 #app {
-  min-height: 100svh;
+  height: 100svh;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+#session-bar {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 12px;
+  border-bottom: 1px solid #29313c;
+  background: #11161c;
+  font-size: 12px;
+}
+
+.identity,
+.session-state {
+  display: flex;
+  align-items: center;
+}
+
+.identity {
+  gap: 8px;
+  letter-spacing: 0.04em;
+}
+
+.prompt-mark {
+  color: #72a7ff;
+  font: 600 13px "Cascadia Mono", Consolas, monospace;
+}
+
+.session-state {
+  min-width: 0;
+  gap: 7px;
+  color: #96a3b2;
+  white-space: nowrap;
+}
+
+#connection-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #687482;
+}
+
+#connection-dot[data-state="connected"] {
+  background: #62c997;
+}
+
+#connection-dot[data-state="error"],
+#connection-dot[data-state="disconnected"] {
+  background: #e17373;
+}
+
+.divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  background: #343d48;
 }
 
 #terminal {
   min-height: 0;
-  padding: 8px;
+  padding: 10px 10px 4px;
+  background: #0b0e12;
 }
 
 #keys {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
-  gap: 6px;
-  padding: 8px;
-  border-top: 1px solid #30343a;
-  background: #171a1f;
+  grid-template-columns: repeat(11, minmax(44px, 1fr));
+  gap: 5px;
+  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+  border-top: 1px solid #29313c;
+  background: #11161c;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 button {
-  min-height: 40px;
-  border: 1px solid #48515c;
-  border-radius: 4px;
-  background: #222831;
-  color: #f2f4f8;
-  font: 14px system-ui, sans-serif;
+  min-width: 48px;
+  min-height: 38px;
+  border: 1px solid #3a4654;
+  border-radius: 6px;
+  background: #19212a;
+  color: #dce5ef;
+  font: 600 12px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  touch-action: manipulation;
+}
+
+button:active:not(:disabled) {
+  border-color: #72a7ff;
+  background: #22334a;
+}
+
+button:focus-visible {
+  outline: 2px solid #72a7ff;
+  outline-offset: 1px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+@media (max-width: 640px) {
+  #session-bar {
+    padding-inline: 10px;
+  }
+
+  #terminal {
+    padding: 7px 6px 2px;
+  }
+
+  #keys {
+    grid-template-columns: repeat(11, 54px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }

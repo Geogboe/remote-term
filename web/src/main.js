@@ -1,24 +1,33 @@
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { overrideBytesForKey } from "./input.js";
 
 const token = window.RTERM_TOKEN || location.pathname.split("/").filter(Boolean).pop();
 const terminalEl = document.getElementById("terminal");
 const keys = document.getElementById("keys");
+const connectionStatus = document.getElementById("connection-status");
+const connectionDot = document.getElementById("connection-dot");
+const writeMode = document.getElementById("write-mode");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let writable = false;
 let wordErase = new Uint8Array([0x17]);
+let connected = false;
 
 const term = new Terminal({
-  cursorBlink: true,
+  cursorBlink: false,
+  cursorStyle: "bar",
+  cursorInactiveStyle: "outline",
   convertEol: true,
   fontFamily: '"Cascadia Mono", "SFMono-Regular", Consolas, monospace',
   fontSize: 14,
+  lineHeight: 1.16,
   theme: {
-    background: "#101214",
-    foreground: "#f2f4f8",
-    cursor: "#f2f4f8",
-    selectionBackground: "#42526b"
+    background: "#0b0e12",
+    foreground: "#dce5ef",
+    cursor: "#72a7ff",
+    cursorAccent: "#0b0e12",
+    selectionBackground: "#304665"
   }
 });
 const fit = new FitAddon();
@@ -38,19 +47,34 @@ function frame(kind, bytes) {
 }
 
 function sendBytes(bytes) {
-  if (!writable || socket.readyState !== WebSocket.OPEN) return;
+  if (!writable || !connected || socket.readyState !== WebSocket.OPEN) return;
   socket.send(frame(0x02, bytes));
 }
 
 function resize() {
   fit.fit();
+  if (socket.readyState !== WebSocket.OPEN) return;
   const payload = encoder.encode(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
   socket.send(frame(0x03, payload));
 }
 
-socket.addEventListener("open", resize);
+function renderState(message, state) {
+  connectionStatus.textContent = message;
+  connectionDot.dataset.state = state;
+  writeMode.textContent = writable ? "Writable" : "Read-only";
+  for (const button of keys.querySelectorAll("button")) {
+    button.disabled = !connected || !writable;
+  }
+}
+
+socket.addEventListener("open", () => {
+  connectionStatus.textContent = "Authorizing";
+  connectionDot.dataset.state = "connecting";
+  resize();
+});
 socket.addEventListener("message", (event) => {
   const bytes = new Uint8Array(event.data);
+  if (bytes.length === 0) return;
   const kind = bytes[0];
   const payload = bytes.slice(1);
   if (kind === 0x01) {
@@ -60,24 +84,37 @@ socket.addEventListener("message", (event) => {
     if (control.type === "status") {
       writable = control.writable;
       wordErase = new Uint8Array(control.word_erase || [0x17]);
+      connected = true;
+      term.options.disableStdin = !writable;
+      renderState("Connected", "connected");
+      if (writable) term.focus();
     } else if (control.type === "error") {
       term.writeln(`\r\n[rterm] ${control.message}`);
     }
   }
 });
-
-term.onData((data) => sendBytes(encoder.encode(data)));
-window.addEventListener("resize", resize);
-window.addEventListener("keydown", (event) => {
-  if (event.ctrlKey && event.key === "Backspace") {
-    event.preventDefault();
-    sendBytes(wordErase);
-  }
+socket.addEventListener("close", () => {
+  connected = false;
+  renderState("Disconnected", "disconnected");
+});
+socket.addEventListener("error", () => {
+  connected = false;
+  renderState("Connection error", "error");
 });
 
+term.onData((data) => sendBytes(encoder.encode(data)));
+term.attachCustomKeyEventHandler((event) => {
+  const bytes = overrideBytesForKey(event, wordErase);
+  if (bytes === undefined) return true;
+  if (bytes.length > 0) sendBytes(bytes);
+  return false;
+});
+window.addEventListener("resize", resize);
+
 const buttons = [
-  ["Esc", "\x1b"], ["Tab", "\t"], ["Ctrl+C", "\x03"], ["Ctrl+D", "\x04"],
-  ["Ctrl+⌫", () => wordErase], ["Enter", "\r"], ["↑", "\x1b[A"], ["↓", "\x1b[B"],
+  ["Esc", "\x1b"], ["Tab", "\t"], ["⌫", new Uint8Array([0x7f])],
+  ["Ctrl+C", "\x03"], ["Ctrl+D", "\x04"], ["Ctrl+⌫", () => wordErase],
+  ["Enter", "\r"], ["↑", "\x1b[A"], ["↓", "\x1b[B"],
   ["←", "\x1b[D"], ["→", "\x1b[C"]
 ];
 
@@ -85,10 +122,17 @@ for (const [label, value] of buttons) {
   const button = document.createElement("button");
   button.type = "button";
   button.textContent = label;
+  button.disabled = true;
   button.addEventListener("click", () => {
-    const bytes = typeof value === "function" ? value() : encoder.encode(value);
+    const bytes = typeof value === "function"
+      ? value()
+      : value instanceof Uint8Array
+        ? value
+        : encoder.encode(value);
     sendBytes(bytes);
     term.focus();
   });
   keys.appendChild(button);
 }
+
+renderState("Connecting", "connecting");

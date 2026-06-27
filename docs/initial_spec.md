@@ -75,6 +75,9 @@ v0 max browser clients: 1
 v0 resize authority: local terminal wins while attached
 v0 WSL behavior: detect and print guidance; do not mutate Windows firewall or portproxy state
 v0 session persistence: no attach to already-running commands; rterm must own the PTY from start
+v0 session discovery: publish live credentials in a per-user registry for `rterm sessions`
+v0 generated credential: five random EFF long-list words separated by hyphens
+v0 elevated execution: refuse session startup unless --allow-elevated is explicit
 v0 frontend assets: source in repo, production assets embedded into the Rust binary
 v0 target matrix: Windows arm64/x64 and Linux arm64/x64
 v0 WebSocket protocol: one WebSocket endpoint with typed binary terminal frames and JSON control frames
@@ -169,7 +172,7 @@ Suggested default:
 ```text
 bind: 127.0.0.1
 web write: disabled unless --write
-token: generated every run
+token: generated as five random EFF long-list words every run
 max web clients: 1
 session lifetime: tied to child process
 ```
@@ -191,8 +194,8 @@ $ rterm --lan --write -- codex
 
 rterm
   Session: brave-river-4382
-  Local URL: http://127.0.0.1:7843/t/f3a...9c
-  LAN URL:   http://192.168.1.50:7843/t/f3a...9c
+  Local URL: http://127.0.0.1:7843/t/harbor-lime-orbit-cabin-velvet
+  LAN URL:   http://192.168.1.50:7843/t/harbor-lime-orbit-cabin-velvet
   Web mode:  writable, single client
   Kill key:  Ctrl+Shift+]
 ```
@@ -399,13 +402,14 @@ Defaults:
 
 ```text
 Bind 127.0.0.1 only.
-Generate a random token every run.
+Generate a random five-word token every run.
 Write access disabled for browser unless --write.
 Only one browser client allowed.
 No cloud service.
 No tunneling.
-No persistence of auth tokens.
-No admin/elevated mode recommendation.
+Persist the auth token only in the per-user active-session registry while the
+session is alive.
+Refuse elevated/root execution unless --allow-elevated is supplied.
 ```
 
 `--lan` should be an explicit opt-in.
@@ -692,6 +696,8 @@ WebSocket terminal output
 browser input when --write is set
 random URL token
 single browser client
+active-session credential lookup
+elevated/root startup refusal with explicit bypass
 Windows arm64/x64 release validation
 Linux arm64/x64 release validation
 ```
@@ -708,6 +714,8 @@ Browser input is rejected unless write mode is enabled.
 Only one browser client is accepted by default.
 Invalid or missing tokens cannot access the terminal page or WebSocket.
 Child exit code becomes the rterm exit code.
+`rterm sessions` lists credentials for live sessions owned by the current user.
+Elevated/root session startup fails unless `--allow-elevated` is supplied.
 Smoke validation passes on Windows arm64/x64 and Linux arm64/x64.
 ```
 

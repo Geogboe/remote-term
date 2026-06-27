@@ -64,6 +64,9 @@ fn child_helper(args: &[String]) -> ExitCode {
 
 async fn run() -> anyhow::Result<u8> {
     let cli = Cli::parse();
+    if let Some(value) = &cli.token {
+        token::validate_user_supplied(value)?;
+    }
     let token = cli.token.clone().unwrap_or_else(token::generate);
     let bind_addr = cli.effective_bind();
     let word_erase = cli.decoded_word_erase();

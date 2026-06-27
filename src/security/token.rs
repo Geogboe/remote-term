@@ -1,9 +1,33 @@
-use rand::distr::{Alphanumeric, SampleString};
+use anyhow::ensure;
+use diceware_wordlists::Wordlist;
+use rand::prelude::IndexedRandom;
 
-pub const DEFAULT_TOKEN_LEN: usize = 32;
+pub const GENERATED_WORD_COUNT: usize = 5;
 
 pub fn generate() -> String {
-    Alphanumeric.sample_string(&mut rand::rng(), DEFAULT_TOKEN_LEN)
+    let words = Wordlist::EffLong.get_list();
+    let mut rng = rand::rng();
+
+    (0..GENERATED_WORD_COUNT)
+        .map(|_| {
+            words
+                .choose(&mut rng)
+                .expect("EFF long wordlist must not be empty")
+        })
+        .copied()
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+pub fn validate_user_supplied(token: &str) -> anyhow::Result<()> {
+    ensure!(!token.is_empty(), "token must not be empty");
+    ensure!(
+        token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~')),
+        "token must contain only URL-safe ASCII letters, digits, '-', '_', '.', or '~'"
+    );
+    Ok(())
 }
 
 pub fn is_valid(candidate: &str, expected: &str) -> bool {
@@ -15,10 +39,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn generated_tokens_are_high_entropy_url_safe_strings() {
+    fn generated_tokens_are_five_eff_words() {
         let token = generate();
-        assert_eq!(token.len(), DEFAULT_TOKEN_LEN);
-        assert!(token.chars().all(|ch| ch.is_ascii_alphanumeric()));
+        let words = token.split('-').collect::<Vec<_>>();
+        let wordlist = diceware_wordlists::Wordlist::EffLong.get_list();
+
+        assert_eq!(words.len(), 5);
+        assert_eq!(wordlist.len(), 7_776);
+        assert!(words.iter().all(|word| wordlist.contains(word)));
+    }
+
+    #[test]
+    fn explicit_tokens_must_be_url_path_safe() {
+        assert!(validate_user_supplied("my-session_1").is_ok());
+        assert!(validate_user_supplied("").is_err());
+        assert!(validate_user_supplied("two/segments").is_err());
+        assert!(validate_user_supplied("not ascii").is_err());
+        assert!(validate_user_supplied("café").is_err());
     }
 
     #[test]

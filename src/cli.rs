@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Clone, Parser)]
 #[command(
@@ -9,6 +9,28 @@ use clap::Parser;
     about = "Run a command in a managed PTY with optional browser access"
 )]
 pub struct Cli {
+    #[command(subcommand)]
+    pub subcommand: Option<CliCommand>,
+
+    #[command(flatten)]
+    pub run: RunArgs,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum CliCommand {
+    /// List browser credentials for active sessions owned by the current user.
+    Sessions(SessionsArgs),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct SessionsArgs {
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct RunArgs {
     /// Bind address for the embedded web server.
     #[arg(long, default_value = "127.0.0.1:7843")]
     pub bind: SocketAddr,
@@ -37,12 +59,16 @@ pub struct Cli {
     #[arg(long)]
     pub token: Option<String>,
 
+    /// Allow session startup as root or from an elevated Windows process.
+    #[arg(long)]
+    pub allow_elevated: bool,
+
     /// Browser Ctrl+Backspace/word-erase byte sequence. Default is Ctrl+W.
     #[arg(long, default_value = "\\x17")]
     pub word_erase: String,
 
     /// Command and arguments to run after `--`.
-    #[arg(last = true, required = true)]
+    #[arg(last = true)]
     pub command: Vec<String>,
 }
 
@@ -52,15 +78,15 @@ impl Cli {
     }
 
     pub fn effective_bind(&self) -> SocketAddr {
-        if self.lan && self.bind.ip().is_loopback() {
-            SocketAddr::from(([0, 0, 0, 0], self.bind.port()))
+        if self.run.lan && self.run.bind.ip().is_loopback() {
+            SocketAddr::from(([0, 0, 0, 0], self.run.bind.port()))
         } else {
-            self.bind
+            self.run.bind
         }
     }
 
     pub fn decoded_word_erase(&self) -> Vec<u8> {
-        decode_escaped_bytes(&self.word_erase)
+        decode_escaped_bytes(&self.run.word_erase)
     }
 }
 
@@ -110,16 +136,16 @@ mod tests {
     fn lan_promotes_loopback_bind_to_all_interfaces() {
         let cli = Cli::try_parse_from(["rterm", "--lan", "--", "codex"]).unwrap();
         assert_eq!(cli.effective_bind(), SocketAddr::from(([0, 0, 0, 0], 7843)));
-        assert!(!cli.write);
-        assert_eq!(cli.max_clients, 1);
+        assert!(!cli.run.write);
+        assert_eq!(cli.run.max_clients, 1);
     }
 
     #[test]
     fn write_is_explicit_and_command_is_collected_after_separator() {
         let cli =
             Cli::try_parse_from(["rterm", "--lan", "--write", "--", "pwsh", "-NoLogo"]).unwrap();
-        assert!(cli.write);
-        assert_eq!(cli.command, ["pwsh", "-NoLogo"]);
+        assert!(cli.run.write);
+        assert_eq!(cli.run.command, ["pwsh", "-NoLogo"]);
     }
 
     #[test]
@@ -133,5 +159,31 @@ mod tests {
         let cli =
             Cli::try_parse_from(["rterm", "--word-erase", "\\x1b\\x7f", "--", "bash"]).unwrap();
         assert_eq!(cli.decoded_word_erase(), vec![0x1b, 0x7f]);
+    }
+
+    #[test]
+    fn sessions_subcommand_does_not_require_a_child_command() {
+        let cli = Cli::try_parse_from(["rterm", "sessions"]).unwrap();
+        assert!(matches!(
+            cli.subcommand,
+            Some(CliCommand::Sessions(SessionsArgs { json: false }))
+        ));
+    }
+
+    #[test]
+    fn sessions_subcommand_supports_json_output() {
+        let cli = Cli::try_parse_from(["rterm", "sessions", "--json"]).unwrap();
+        assert!(matches!(
+            cli.subcommand,
+            Some(CliCommand::Sessions(SessionsArgs { json: true }))
+        ));
+    }
+
+    #[test]
+    fn elevated_bypass_is_explicit_run_configuration() {
+        let cli =
+            Cli::try_parse_from(["rterm", "--allow-elevated", "--", "pwsh", "-NoLogo"]).unwrap();
+        assert!(cli.run.allow_elevated);
+        assert_eq!(cli.run.command, ["pwsh", "-NoLogo"]);
     }
 }

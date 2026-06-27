@@ -2,11 +2,11 @@ use std::process::ExitCode;
 
 use anyhow::Context;
 use clap::Parser;
-use rterm::cli::Cli;
+use rterm::cli::{Cli, CliCommand, RunArgs};
 use rterm::platform::command;
-use rterm::platform::{lan_ip, wsl};
+use rterm::platform::{elevation, lan_ip, wsl};
 use rterm::security::token;
-use rterm::session::{RunConfig, run_session};
+use rterm::session::{RunConfig, registry, run_session};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -64,23 +64,33 @@ fn child_helper(args: &[String]) -> ExitCode {
 
 async fn run() -> anyhow::Result<u8> {
     let cli = Cli::parse();
-    if let Some(value) = &cli.token {
-        token::validate_user_supplied(value)?;
+    if let Some(command) = cli.subcommand {
+        return run_cli_command(command);
     }
-    let token = cli.token.clone().unwrap_or_else(token::generate);
+
     let bind_addr = cli.effective_bind();
     let word_erase = cli.decoded_word_erase();
+    let run = cli.run;
+    anyhow::ensure!(
+        !run.command.is_empty(),
+        "a child command is required after `--`"
+    );
+    elevation::ensure_session_allowed(run.allow_elevated)?;
+    if let Some(value) = &run.token {
+        token::validate_user_supplied(value)?;
+    }
+    let token = run.token.clone().unwrap_or_else(token::generate);
 
-    print_startup(&cli, bind_addr, &token);
+    print_startup(&run, bind_addr, &token);
 
     let config = RunConfig {
-        command: cli.command,
+        command: run.command,
         bind_addr,
-        lan: cli.lan,
-        web_write: cli.write,
-        max_clients: cli.max_clients,
-        once: cli.once,
-        headless: cli.headless,
+        lan: run.lan,
+        web_write: run.write,
+        max_clients: run.max_clients,
+        once: run.once,
+        headless: run.headless,
         token,
         word_erase,
     };
@@ -88,10 +98,44 @@ async fn run() -> anyhow::Result<u8> {
     run_session(config).await.context("terminal session failed")
 }
 
-fn print_startup(cli: &Cli, bind_addr: std::net::SocketAddr, token: &str) {
-    let local_url = format!("http://127.0.0.1:{}/t/{token}", bind_addr.port());
+fn run_cli_command(command: CliCommand) -> anyhow::Result<u8> {
+    match command {
+        CliCommand::Sessions(args) => {
+            let sessions = registry::list()?;
+            if args.json {
+                println!("{}", serde_json::to_string_pretty(&sessions)?);
+            } else if sessions.is_empty() {
+                println!("No active rterm sessions.");
+            } else {
+                for session in sessions {
+                    let mode = if session.writable {
+                        "writable"
+                    } else {
+                        "read-only"
+                    };
+                    println!(
+                        "{}  pid={}  {}  {}",
+                        session.id, session.pid, mode, session.program
+                    );
+                    println!("  Local URL: {}", session.local_url);
+                    if let Some(url) = session.lan_url {
+                        println!("  LAN URL:   {url}");
+                    }
+                }
+            }
+            Ok(0)
+        }
+    }
+}
+
+fn print_startup(cli: &RunArgs, bind_addr: std::net::SocketAddr, token: &str) {
+    let local_url = lan_ip::terminal_url(
+        std::net::IpAddr::from([127, 0, 0, 1]),
+        bind_addr.port(),
+        token,
+    );
     let lan_url = lan_ip::primary_lan_ip()
-        .map(|ip| format!("http://{ip}:{}/t/{token}", bind_addr.port()))
+        .map(|ip| lan_ip::terminal_url(ip, bind_addr.port(), token))
         .unwrap_or_else(|| "(no LAN address detected)".to_string());
     let mode = if cli.write { "writable" } else { "read-only" };
 

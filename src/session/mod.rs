@@ -1,5 +1,6 @@
 pub mod pty;
 pub mod raw_terminal;
+pub mod registry;
 pub mod scrollback;
 
 use std::net::SocketAddr;
@@ -119,6 +120,7 @@ pub async fn run_session(config: RunConfig) -> anyhow::Result<u8> {
     let listener = server::bind(config.bind_addr)
         .await
         .with_context(|| format!("failed to bind web server at {}", config.bind_addr))?;
+    let _registration = registry::register(&config)?;
     let synthesize_terminal_responses = config.headless || !raw_terminal::is_interactive_terminal();
 
     let _raw = if config.headless {

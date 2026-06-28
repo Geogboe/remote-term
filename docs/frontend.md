@@ -60,26 +60,28 @@ The `__TOKEN__` placeholder is replaced server-side with the actual session toke
 The application performs these steps on load:
 
 1. **Token extraction**: Reads `window.RTERM_TOKEN` (or falls back to path parsing)
-2. **Terminal initialization**: Creates xterm.js `Terminal` with dark theme, loads `FitAddon`
+2. **Terminal initialization**: Creates xterm.js `Terminal` with a stable nonblinking cursor, dark terminal theme, and `FitAddon`
 3. **WebSocket connection**: Connects to `ws://host/ws/{token}` with binary mode
 4. **Status handshake**: Receives initial `status` control frame (writable mode, word-erase sequence)
 5. **Scrollback replay**: Receives buffered output frames to populate the terminal
 6. **Live streaming**: Enters the message loop for real-time terminal I/O
-7. **Key strip**: Creates on-screen buttons for mobile terminal keys
+7. **Status rail**: Shows connection and read-only/writable state
+8. **Key deck**: Creates on-screen buttons for mobile terminal keys
 
 #### Terminal Configuration
 
 ```javascript
 const term = new Terminal({
-  cursorBlink: true,
+  cursorBlink: false,
+  cursorStyle: "bar",
   convertEol: true,
   fontFamily: '"Cascadia Mono", "SFMono-Regular", Consolas, monospace',
   fontSize: 14,
   theme: {
-    background: "#101214",
-    foreground: "#f2f4f8",
-    cursor: "#f2f4f8",
-    selectionBackground: "#42526b"
+    background: "#0b0e12",
+    foreground: "#dce5ef",
+    cursor: "#72a7ff",
+    selectionBackground: "#304665"
   }
 });
 ```
@@ -92,12 +94,13 @@ const term = new Terminal({
 
 #### Mobile Key Strip
 
-Ten buttons for mobile-friendly terminal control:
+Eleven buttons for mobile-friendly terminal control:
 
 | Button | Bytes Sent |
 |--------|------------|
 | Esc | `\x1b` |
 | Tab | `\t` |
+| ⌫ | `\x7f` |
 | Ctrl+C | `\x03` |
 | Ctrl+D | `\x04` |
 | Ctrl+⌫ | Configured word-erase (default `\x17`) |
@@ -111,26 +114,31 @@ The Ctrl+Backspace button sends the `word_erase` sequence from the server status
 
 #### Keyboard Handling
 
-- All keyboard input is forwarded to the server via `term.onData()`
-- `Ctrl+Backspace` is intercepted at the `keydown` level and sends the word-erase sequence
-- Window resize triggers `FitAddon.fit()` and sends a resize control frame
+- General keyboard input is forwarded to the server via `term.onData()`
+- Backspace is intercepted before xterm's default handler and sends one DEL byte
+- `Ctrl+Backspace` sends exactly one configured word-erase sequence
+- Keyup is consumed without sending a second erase sequence
+- Alt/Meta-modified Backspace remains under xterm control
+- Resize frames are sent only while the socket is open
 
 ### CSS (`style.css`)
 
 Combined stylesheet:
 - **xterm.css**: Standard xterm.js terminal styling (from `@xterm/xterm/css/xterm.css`)
-- **App styles**: Dark theme (`#101214` background, `#f2f4f8` foreground), layout grid, key strip styling
+- **App styles**: Terminal-native dark theme, connection rail, responsive key deck, safe-area padding, and visible keyboard focus
 
-The layout uses CSS Grid:
+The page uses a three-row CSS grid:
 ```css
 #app {
-  min-height: 100svh;
+  height: 100svh;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 ```
 
-The terminal fills available space; the key strip is fixed at the bottom.
+The status rail stays compact, the terminal fills available space, and the key
+deck remains reachable at the bottom. Controls stay disabled until a writable
+session is authorized.
 
 ## Server-Side Asset Serving
 

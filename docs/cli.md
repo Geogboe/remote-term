@@ -8,6 +8,12 @@ rterm [OPTIONS] -- <COMMAND> [ARGS...]
 
 All options must appear before `--`. Everything after `--` is the child command.
 
+Management commands do not require a child command:
+
+```text
+rterm sessions [--json]
+```
+
 ## Options
 
 ### `--bind <ADDR>`
@@ -84,7 +90,23 @@ Manually supply the browser URL token instead of auto-generating one.
 rterm --token my-session -- codex
 ```
 
-The URL becomes `http://127.0.0.1:7843/t/my-session`. Auto-generated tokens are 32 random alphanumeric characters.
+The URL becomes `http://127.0.0.1:7843/t/my-session`. Explicit tokens must use
+URL-safe ASCII letters, digits, `-`, `_`, `.`, or `~`. Auto-generated tokens
+contain five random words from EFF's long Diceware list. Explicit tokens are
+limited to 256 bytes.
+
+### `--allow-elevated`
+
+Allow a terminal session to start as root or from an elevated Windows process.
+rterm refuses this by default because the browser controls the child at the
+same privilege level.
+
+```powershell
+rterm --allow-elevated -- pwsh
+```
+
+This guard applies to session startup. Read-only management commands such as
+`rterm sessions` remain available.
 
 ### `--word-erase <SEQUENCE>`
 
@@ -147,6 +169,26 @@ rterm --lan --write --once -- codex
 
 Single browser client; web server stops accepting new clients after disconnect.
 
+## Management Commands
+
+### `rterm sessions`
+
+List live sessions owned by the current OS user, including their browser URLs:
+
+```text
+4260  pid=4260  writable  codex
+  Local URL: http://127.0.0.1:7843/t/harbor-lime-orbit-cabin-velvet
+  LAN URL:   http://192.168.1.50:7843/t/harbor-lime-orbit-cabin-velvet
+```
+
+Use `--json` for automation:
+
+```powershell
+rterm sessions --json
+```
+
+Stale registry entries are discarded when sessions are listed.
+
 ## Exit Codes
 
 rterm exits with the child process's exit code. If rterm itself fails (e.g., bind failure, PTY error), it exits with code `1`. If no exit code can be determined, it defaults to `1`.
@@ -155,7 +197,7 @@ rterm exits with the child process's exit code. If rterm itself fails (e.g., bin
 
 | Variable | Purpose |
 |----------|---------|
-| `RTRM_EXIT_FILE` | Set internally for child helper; writes exit code to this file |
+| `RTERM_EXIT_FILE` | Set internally for child helper; writes exit code to this file |
 | `RUST_LOG` | Controls tracing verbosity (env-filter format). Default: `warn` |
 
 Tracing levels: `error`, `warn`, `info`, `debug`, `trace`. Example: `RUST_LOG=rterm=debug cargo run -- bash`.

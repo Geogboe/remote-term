@@ -33,6 +33,7 @@ src/
 ├── platform/
 │   ├── mod.rs           Re-exports
 │   ├── command.rs       Cross-platform command resolution
+│   ├── elevation.rs     Windows token / Unix effective-UID guard
 │   ├── lan_ip.rs        LAN IP detection
 │   └── wsl.rs           WSL detection and guidance
 ├── security/
@@ -42,6 +43,7 @@ src/
 │   ├── mod.rs           Session coordinator, RunConfig, SessionState, ClientPermit
 │   ├── pty.rs           PTY spawn, reader/writer threads, resize watcher, local bridge
 │   ├── raw_terminal.rs  Crossterm raw mode guard (RAII)
+│   ├── registry.rs      Per-user active-session discovery records
 │   └── scrollback.rs    Ring buffer for PTY output replay
 └── web/
     ├── mod.rs           Re-exports
@@ -59,7 +61,11 @@ The binary entry point. Handles two execution paths:
 
 1. **`__rterm-child`**: Internal re-execution marker. When rterm spawns a PTY child, it re-executes itself with `__rterm-child <marker> -- <command>`. This child helper runs the real user command, writes the exit code to both a temp file and an OSC escape sequence on stdout, then exits.
 
-2. **Normal mode**: Initializes tracing, parses CLI, generates/validates tokens, prints startup info (URLs, mode, WSL guidance), and calls `session::run_session`.
+2. **Management mode**: `rterm sessions` probes and lists live per-user registry records.
+
+3. **Normal mode**: Initializes tracing, refuses unintended elevated execution,
+generates or validates the token, prints startup information, and calls
+`session::run_session`.
 
 ### `cli.rs`
 
@@ -74,6 +80,7 @@ Uses `clap` derive macros for argument parsing. Fields:
 | `--once` | `bool` | `false` | Stop accepting new clients after first disconnect |
 | `--headless` | `bool` | `false` | Do not attach local terminal to the PTY |
 | `--token` | `Option<String>` | `None` (auto-generated) | Manual URL token |
+| `--allow-elevated` | `bool` | `false` | Permit root/elevated session startup |
 | `--word-erase` | `String` | `\x17` (Ctrl+W) | Browser Ctrl+Backspace byte sequence |
 | `[command]` | `Vec<String>` | (required) | Command after `--` separator |
 
@@ -99,7 +106,9 @@ Detects WSL by reading `/proc/sys/kernel/osrelease` (or `/proc/version` as fallb
 
 ### `security::token`
 
-Generates 32-character alphanumeric tokens using `rand`. Validation is constant-time comparison. Tokens are per-session, never persisted.
+Generates five-word tokens from EFF's 7,776-word long list using `rand`.
+Explicit tokens are restricted to URL-path-safe ASCII. Request validation uses
+exact string comparison.
 
 ### `session::mod`
 
@@ -110,6 +119,14 @@ Core session coordinator. Contains:
 - **`SessionState`**: Shared state between all session components. Contains token, write mode, client limits, channels (input/output), scrollback buffer, and atomic counters for active clients and closed-to-new-clients flag.
 - **`ClientPermit`**: RAII guard. Acquired when a browser connects, released on drop. Enforces `max_clients` and `--once` behavior.
 - **`run_session()`**: Main orchestrator. Sets up channels, spawns the PTY, starts local bridge (if not headless), starts resize watcher (if not headless), starts the web server, waits for exit, and tears down all tasks.
+
+### `session::registry`
+
+Publishes one JSON record per live process under the current user's local data
+directory. Records contain the PID, executable name, mode, and full browser
+URLs. Writes are atomic; an RAII guard removes the record on normal shutdown.
+`rterm sessions` probes the authenticated local route and removes stale or
+malformed records, with a short grace period for sessions still starting.
 
 ### `session::pty`
 

@@ -31,9 +31,13 @@ rterm uses [Taskfile](https://taskfile.dev) for build orchestration.
 |------|-------------|
 | `task test` | Run Rust tests |
 | `task fmt` | Format Rust code (`cargo fmt --all`) |
+| `task fmt:check` | Verify formatting without changing files |
 | `task lint` | Run clippy with `-D warnings` |
 | `task web:install` | Install npm dependencies |
 | `task web:build` | Build frontend assets with esbuild |
+| `task web:test` | Run browser input unit tests |
+| `task web:verify` | Rebuild and verify committed browser assets |
+| `task check` | Run all non-interactive quality checks |
 | `task build` | Build web assets + debug binary |
 | `task build:release` | Build web assets + release binary |
 | `task run -- <cmd>` | Build and run rterm with `--write` (defaults to `pwsh`) |
@@ -46,6 +50,8 @@ rterm uses [Taskfile](https://taskfile.dev) for build orchestration.
 | `task smoke` | Run a quick child output smoke test |
 | `task smoke:exit-code` | Verify child exit code propagation |
 | `task smoke:web` | Probe tokenized web routes on localhost |
+| `task smoke:sessions` | Verify live-session lookup and registry cleanup |
+| `task ci` | Run all checks and native smoke paths |
 
 ### Manual Testing
 

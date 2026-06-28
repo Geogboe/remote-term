@@ -694,7 +694,7 @@ axum HTTP server
 xterm.js static page
 WebSocket terminal output
 browser input when --write is set
-random URL token
+random five-word URL token
 single browser client
 active-session credential lookup
 elevated/root startup refusal with explicit bypass
@@ -754,7 +754,6 @@ TLS
 config file
 headless mode
 session names
-session list
 detach local side while child continues
 ```
 

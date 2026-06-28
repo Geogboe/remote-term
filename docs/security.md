@@ -17,7 +17,7 @@ rterm is conservative by default:
 |---------|---------|-----------|
 | Bind address | `127.0.0.1` | Local only; no network exposure |
 | WebSocket write | Disabled | Read-only observation by default |
-| Token | Random 32-char alphanumeric | High-entropy, per-session |
+| Token | Five random EFF long-list words | Human-readable, per-session |
 | Max clients | 1 | Single observer |
 | LAN exposure | Explicit opt-in (`--lan`) | Never accidentally exposed |
 | TLS | Not implemented | v0 scope limitation |
@@ -26,7 +26,10 @@ rterm is conservative by default:
 
 ### Generation
 
-Tokens are generated using `rand::distr::Alphanumeric` which produces 32 characters from `[A-Za-z0-9]`. At ~5.95 bits per character, this gives approximately 190 bits of entropy.
+Tokens contain five independently selected words from EFF's 7,776-word long
+Diceware list. This provides approximately 64.6 bits of entropy. Selection uses
+the application's cryptographic random-number generator. See
+`docs/adr/0001-human-readable-session-credentials.md`.
 
 ### Validation
 
@@ -44,9 +47,25 @@ The token appears in:
 
 Tokens are:
 - Generated per-run (never reused)
-- Never persisted to disk
-- Never logged (use caution with `RUST_LOG`)
 - Printed to stderr at startup
+- Stored in the current user's active-session registry while the session lives
+- Removed from the registry on normal shutdown
+- Pruned when stale or corrupt registry entries are encountered
+
+On Unix, rterm creates the registry directory with mode `0700` and registry
+files with mode `0600`. On Windows, the registry inherits the current user's
+Local AppData ACL. Administrators and processes already running as the same
+user remain inside the trust boundary.
+
+## Elevated Execution
+
+rterm refuses to start a session as Unix root or from an elevated Windows
+process unless `--allow-elevated` is supplied. The Windows check reads the
+current process token's `TokenElevation` value; Unix checks the effective user
+ID.
+
+The guard limits accidental exposure of an elevated shell. It does not reduce
+the privileges of the child when bypassed.
 
 ## LAN Exposure
 
@@ -89,10 +108,13 @@ LAN mode assumes the local network is trusted. On untrusted networks (public WiF
 - No filtering, sanitization, or escaping is applied to terminal input
 - The PTY's behavior depends entirely on the child process running inside it
 
-## No Persistent State
+## Limited Persistent State
 
-rterm maintains no persistent state:
-- No session files on disk (except temporary exit code files in `$TMP`)
+rterm persists only live discovery metadata:
+- Per-user active-session records contain the browser URLs and are removed on
+  normal shutdown
+- Crashes can leave stale records, which `rterm sessions` probes and removes
+- Temporary exit code files remain under the system temporary directory
 - No auth database or config
 - No log files by default (tracing goes to stderr)
 - No browser local storage or cookies
@@ -103,7 +125,7 @@ rterm maintains no persistent state:
 |------------|------|------------|
 | No TLS | Eavesdropping on LAN | Use on trusted networks only |
 | No password auth | Token-only access | Token is high-entropy; not in URL bar after initial load (SPA) |
-| No rate limiting | Brute-force token guessing | 190-bit entropy makes brute-force impractical |
+| No rate limiting | Brute-force token guessing | ~64.6-bit session credential remains impractical to guess online |
 | No CORS headers | Cross-origin access | Single-origin SPA; no CORS needed |
 | WebSocket origin not checked | Cross-origin WebSocket | Token in path provides equivalent protection |
 | No input sanitization | Terminal escape injection | Inherent to terminal use; child process must be trusted |

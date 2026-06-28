@@ -2,24 +2,27 @@
 
 ## Startup Sequence
 
-1. **CLI Parsing**: `clap` parses arguments. Validates required command and flag combinations.
-2. **Token Generation**: Random 32-char alphanumeric token, or manual via `--token`.
-3. **Bind Address Resolution**: If `--lan` and loopback bind, promotes to `0.0.0.0`.
-4. **Startup Print**: Outputs local URL, LAN URL (if `--lan`), mode, max clients, bind address, and WSL guidance.
-5. **Session Initialization**:
+1. **CLI Parsing**: `clap` parses arguments and management subcommands.
+2. **Command Dispatch**: `rterm sessions` lists live per-user registry entries without starting a child.
+3. **Elevation Guard**: Session startup refuses root/elevated execution unless `--allow-elevated` is set.
+4. **Token Generation**: Five random EFF long-list words, or validated manual `--token`.
+5. **Bind Address Resolution**: If `--lan` and loopback bind, promotes to `0.0.0.0`.
+6. **Startup Print**: Outputs local URL, LAN URL (if `--lan`), mode, max clients, bind address, and WSL guidance.
+7. **Session Initialization**:
    - Creates `mpsc::unbounded_channel` for PTY input
    - Creates `SessionState` with shared config and channels
    - Binds TCP listener for the web server
-6. **Raw Terminal Mode**: If not headless, enters crossterm raw mode via RAII guard.
-7. **Local Bridge**: If not headless and on an interactive terminal:
+8. **Registry Publication**: Atomically publishes a per-user active-session record before spawning the child.
+9. **Raw Terminal Mode**: If not headless, enters crossterm raw mode via RAII guard.
+10. **Local Bridge**: If not headless and on an interactive terminal:
    - Spawns stdin reader thread (reads bytes, sends to PTY input channel)
    - Spawns stdout writer task (async, receives from broadcast and writes to stdout)
-8. **PTY Spawn**:
+11. **PTY Spawn**:
    - Allocates PTY via `portable-pty`
    - Spawns child process by re-executing rterm itself with `__rterm-child <marker> -- <command>`
    - Starts four background threads: reader, writer, child-waiter, exit-file-watcher
-9. **Resize Watcher**: If not headless, polls terminal size every 250ms.
-10. **Web Server**: Spawns axum server on the TCP listener.
+12. **Resize Watcher**: If not headless, polls terminal size every 250ms.
+13. **Web Server**: Spawns axum server on the TCP listener.
 
 ## Running State
 
@@ -67,8 +70,9 @@ When the exit code is received via the oneshot channel:
 3. **Abort Local Handles**: All local bridge tasks (stdin reader, stdout writer) are aborted.
 4. **Abort Resize Watcher**: The resize polling task is aborted.
 5. **Abort Web Server**: The axum server task is aborted.
-6. **Return Exit Code**: The session function returns the exit code.
-7. **Raw Mode Restore**: When `RawTerminalGuard` drops (on function return or panic), crossterm raw mode is disabled, restoring the terminal to its previous state.
+6. **Remove Registry Record**: The registration guard removes the active-session record.
+7. **Return Exit Code**: The session function returns the exit code.
+8. **Raw Mode Restore**: When `RawTerminalGuard` drops (on function return or panic), crossterm raw mode is disabled, restoring the terminal to its previous state.
 
 ## Client Connection Lifecycle
 

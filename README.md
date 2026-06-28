@@ -12,6 +12,23 @@ rterm --lan --write -- codex
 The local terminal remains the primary controller. The browser can observe by
 default and can write only when `--write` is supplied.
 
+Generated browser credentials use five random words so the URL can be
+transcribed:
+
+```text
+http://192.168.1.50:7843/t/harbor-lime-orbit-cabin-velvet
+```
+
+Recover URLs for sessions started in another terminal:
+
+```powershell
+rterm sessions
+```
+
+rterm refuses to start terminal sessions as root or from an elevated Windows
+process. Use `--allow-elevated` only when the elevated child session is
+intentional.
+
 ## Installation
 
 Linux/macOS:
@@ -32,20 +49,18 @@ Manual downloads are available from the latest GitHub release:
 https://github.com/Geogboe/remote-term/releases
 ```
 
-## Current Commands
+## Development
 
 ```powershell
-cargo test
-cargo fmt --all
-cargo clippy --all-targets --all-features -- -D warnings
+task check
+task ci
 ```
 
-Build embedded browser assets:
+Run a command:
 
 ```powershell
-cd web
-npm install
-npm run build
+task run -- pwsh
+task run:lan -- codex
 ```
 
 Run a local smoke command:
@@ -59,10 +74,10 @@ exit code.
 
 ## Browser URLs
 
-Each run generates a token:
+Each run generates a five-word token:
 
 ```text
-http://127.0.0.1:7843/t/<token>
+http://127.0.0.1:7843/t/harbor-lime-orbit-cabin-velvet
 ```
 
 Use `--lan` to bind on all interfaces and print a LAN URL. Use `--write` only on

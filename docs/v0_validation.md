@@ -8,6 +8,7 @@ Use this file to record implementation validation against `docs/initial_spec.md`
 task test
 task fmt
 task lint
+task web:test
 ```
 
 ## Frontend bundle
@@ -25,6 +26,7 @@ Child process output and exit code:
 
 ```powershell
 task smoke:exit-code
+task smoke:sessions
 ```
 
 Expected:
@@ -61,16 +63,18 @@ Recorded 2026-06-26 from the local Windows ARM64 development environment:
 
 ```text
 task fmt        passed
-task test       passed, 15 tests
+task test       passed, 28 tests
 task lint       passed
+task web:test   passed, 4 tests
 task web:build  passed
 task smoke      passed, printed rterm-smoke and exited 0
 task smoke:web  passed, valid token 200, asset 200, wrong token 404
+task smoke:sessions passed, live JSON lookup and cleanup verified
+task ci         passed
 ```
 
-`task smoke:exit-code` printed `rterm-smoke` and returned exit status `7`,
-matching the child process exit code. The task itself reports failure because
-the smoke intentionally exits nonzero.
+`task smoke:exit-code` printed `rterm-smoke`, verified that rterm returned the
+child's exit status `7`, and reported the smoke as passed.
 
 Still needs validation on real interactive terminals:
 
@@ -92,3 +96,6 @@ Windows x64
 Linux x64
 Linux arm64
 ```
+
+`.github/workflows/ci.yml` now defines native jobs for all four targets. These
+jobs have not been observed yet because the branch has not been pushed.

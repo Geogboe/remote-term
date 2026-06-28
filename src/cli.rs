@@ -6,7 +6,9 @@ use clap::{Args, Parser, Subcommand};
 #[command(
     author,
     version,
-    about = "Run a command in a managed PTY with optional browser access"
+    about = "Run a command in a managed PTY with optional browser access",
+    args_conflicts_with_subcommands = true,
+    subcommand_precedence_over_arg = true
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -68,7 +70,7 @@ pub struct RunArgs {
     pub word_erase: String,
 
     /// Command and arguments to run after `--`.
-    #[arg(last = true)]
+    #[arg(last = true, value_name = "CHILD_COMMAND")]
     pub command: Vec<String>,
 }
 

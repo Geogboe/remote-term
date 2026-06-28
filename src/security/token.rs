@@ -3,6 +3,7 @@ use diceware_wordlists::Wordlist;
 use rand::prelude::IndexedRandom;
 
 pub const GENERATED_WORD_COUNT: usize = 5;
+pub const MAX_EXPLICIT_TOKEN_LEN: usize = 256;
 
 pub fn generate() -> String {
     let words = Wordlist::EffLong.get_list();
@@ -21,6 +22,10 @@ pub fn generate() -> String {
 
 pub fn validate_user_supplied(token: &str) -> anyhow::Result<()> {
     ensure!(!token.is_empty(), "token must not be empty");
+    ensure!(
+        token.len() <= MAX_EXPLICIT_TOKEN_LEN,
+        "token must be at most {MAX_EXPLICIT_TOKEN_LEN} bytes"
+    );
     ensure!(
         token
             .bytes()
@@ -56,6 +61,7 @@ mod tests {
         assert!(validate_user_supplied("two/segments").is_err());
         assert!(validate_user_supplied("not ascii").is_err());
         assert!(validate_user_supplied("café").is_err());
+        assert!(validate_user_supplied(&"a".repeat(MAX_EXPLICIT_TOKEN_LEN + 1)).is_err());
     }
 
     #[test]

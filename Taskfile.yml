@@ -4,7 +4,6 @@ version: '3'
 
 vars:
   SMOKE_COMMAND: pwsh -NoProfile -Command "Write-Output rterm-smoke"
-  SMOKE_EXIT_COMMAND: pwsh -NoProfile -Command "Write-Output rterm-smoke; exit 7"
   RUN_COMMAND: '{{default "pwsh" .CLI_ARGS}}'
 
 tasks:
@@ -23,6 +22,11 @@ tasks:
     cmds:
       - cargo fmt --all
 
+  fmt:check:
+    desc: Verify Rust formatting without changing files
+    cmds:
+      - cargo fmt --all -- --check
+
   lint:
     desc: Run Rust lint checks
     cmds:
@@ -39,6 +43,27 @@ tasks:
     dir: web
     cmds:
       - npm run build
+
+  web:test:
+    desc: Run browser input unit tests
+    dir: web
+    cmds:
+      - npm test
+
+  web:verify:
+    desc: Rebuild browser assets and verify generated files are current
+    cmds:
+      - task: web:build
+      - git diff --exit-code -- src/web/static
+
+  check:
+    desc: Run all non-interactive quality checks
+    cmds:
+      - task: fmt:check
+      - task: web:test
+      - task: web:verify
+      - task: test
+      - task: lint
 
   build:
     desc: Build embedded web assets and debug binary
@@ -76,10 +101,26 @@ tasks:
   smoke:exit-code:
     desc: Run a child exit-code propagation smoke test
     cmds:
-      - cargo run -- -- {{.SMOKE_EXIT_COMMAND}}
+      - cargo build
+      - pwsh -NoProfile -File scripts/smoke-exit-code.ps1
 
   smoke:web:
     desc: Probe tokenized web routes on localhost
     cmds:
       - cargo build
       - pwsh -NoProfile -File scripts/smoke-web.ps1
+
+  smoke:sessions:
+    desc: Verify session discovery and registry cleanup
+    cmds:
+      - cargo build
+      - pwsh -NoProfile -File scripts/smoke-sessions.ps1
+
+  ci:
+    desc: Run the full native CI validation path
+    cmds:
+      - task: check
+      - task: smoke
+      - task: smoke:exit-code
+      - task: smoke:web
+      - task: smoke:sessions

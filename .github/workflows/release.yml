@@ -22,6 +22,12 @@ jobs:
             asset_arch: amd64
             binary_ext: ''
             archive_ext: tar.gz
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            asset_os: linux
+            asset_arch: arm64
+            binary_ext: ''
+            archive_ext: tar.gz
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
             asset_os: linux
@@ -46,7 +52,7 @@ jobs:
             asset_arch: amd64
             binary_ext: '.exe'
             archive_ext: zip
-          - runner: windows-latest
+          - runner: windows-11-arm
             target: aarch64-pc-windows-msvc
             asset_os: windows
             asset_arch: arm64
@@ -131,6 +137,9 @@ jobs:
           ### Notes
 
           - `rterm` runs a command inside a managed PTY and exposes the same terminal session to a tokenized browser view.
+          - Generated browser credentials use five random words for easier transcription.
+          - `rterm sessions` recovers URLs for active sessions owned by the current user.
+          - Root/elevated session startup requires `--allow-elevated`.
           - Browser write access remains opt-in with `--write`.
           - LAN binding remains opt-in with `--lan`.
           EOF

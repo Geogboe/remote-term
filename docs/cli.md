@@ -12,6 +12,7 @@ Management commands do not require a child command:
 
 ```text
 rterm sessions [--json]
+rterm starship
 ```
 
 ## Options
@@ -203,6 +204,30 @@ rterm sessions --json
 
 Stale registry entries are discarded when sessions are listed.
 
+### `rterm starship`
+
+Print safe metadata for a
+[Starship custom module](https://starship.rs/config/#custom-commands). It emits
+nothing outside an rterm child session.
+
+```toml
+[custom.rterm]
+command = 'rterm starship'
+when = true
+style = 'bold blue'
+format = '([$output]($style) )'
+description = 'Current rterm session'
+```
+
+The output has this form:
+
+```text
+rterm:4260 lan/rw/shared
+```
+
+The fields identify the session, network exposure, browser access, and whether
+control is shared with a local terminal or web-only. Credentials are excluded.
+
 ## Exit Codes
 
 rterm exits with the child process's exit code. If rterm itself fails (e.g., bind failure, PTY error), it exits with code `1`. If no exit code can be determined, it defaults to `1`.
@@ -212,6 +237,10 @@ rterm exits with the child process's exit code. If rterm itself fails (e.g., bin
 | Variable | Purpose |
 |----------|---------|
 | `RTERM_EXIT_FILE` | Set internally for child helper; writes exit code to this file |
+| `RTERM_SESSION_ID` | Active rterm session ID |
+| `RTERM_SESSION_NETWORK` | `local` or `lan` exposure |
+| `RTERM_SESSION_ACCESS` | Browser access: `ro` or `rw` |
+| `RTERM_SESSION_CONTROL` | Terminal control: `shared` or `web` |
 | `RUST_LOG` | Controls tracing verbosity (env-filter format). Default: `warn` |
 
 Tracing levels: `error`, `warn`, `info`, `debug`, `trace`. Example: `RUST_LOG=rterm=debug cargo run -- bash`.

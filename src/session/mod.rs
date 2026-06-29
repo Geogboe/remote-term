@@ -10,6 +10,7 @@ use std::time::Duration;
 use anyhow::Context;
 use tokio::sync::{broadcast, mpsc, oneshot};
 
+use crate::starship::SessionMetadata;
 use crate::web::server::{self, AppState};
 
 #[derive(Debug, Clone)]
@@ -124,6 +125,7 @@ pub async fn run_session(
     let (input_tx, input_rx) = mpsc::unbounded_channel();
     let state = SessionState::new(&config, input_tx.clone());
     let _registration = registry::register(&config)?;
+    let session_metadata = SessionMetadata::from_config(&config);
     let synthesize_terminal_responses = config.headless || !raw_terminal::is_interactive_terminal();
 
     let _raw = if config.headless {
@@ -151,6 +153,7 @@ pub async fn run_session(
         output_tx: state.output_tx.clone(),
         scrollback: state.scrollback.clone(),
         exit_marker: &config.token,
+        session_metadata: &session_metadata,
         response_tx: input_tx.clone(),
         synthesize_terminal_responses,
         exit_tx,

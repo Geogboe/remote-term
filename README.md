@@ -25,6 +25,22 @@ Recover URLs for sessions started in another terminal:
 rterm sessions
 ```
 
+Show safe rterm session metadata in a
+[Starship custom module](https://starship.rs/config/#custom-commands):
+
+```toml
+[custom.rterm]
+command = 'rterm starship'
+when = true
+style = 'bold blue'
+format = '([$output]($style) )'
+description = 'Current rterm session'
+```
+
+The module displays values such as `rterm:4260 lan/rw/shared` without exposing
+the browser credential. A ready-to-copy configuration is available at
+[`docs/examples/starship.toml`](docs/examples/starship.toml).
+
 rterm refuses to start terminal sessions as root or from an elevated Windows
 process. Use `--allow-elevated` only when the elevated child session is
 intentional.

@@ -63,7 +63,7 @@ Recorded 2026-06-29 from the local Windows ARM64 development environment:
 
 ```text
 task fmt        passed
-task test       passed, 34 tests
+task test       passed, 38 tests
 task lint       passed
 task web:test   passed, 4 tests
 task web:build  passed
@@ -73,8 +73,13 @@ task smoke:browser-input passed, Backspace, word erase, arrow history,
                          Ctrl+C, resize, 2 KiB paste, and inherited cwd through real ConPTY
 task smoke:sessions passed, live JSON lookup, effective custom bind/ephemeral port,
                      and cleanup verified
+task smoke:starship passed, metadata hidden outside and shown inside a wrapped child
 task ci         passed
 ```
+
+Starship 1.24.2 also rendered `docs/examples/starship.toml` with the module
+hidden outside rterm and visible as `rterm:4260 lan/rw/shared` with session
+metadata present.
 
 `task smoke:exit-code` printed `rterm-smoke`, verified that rterm returned the
 child's exit status `7`, and reported the smoke as passed.

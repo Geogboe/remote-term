@@ -25,6 +25,9 @@ pub struct Cli {
 pub enum CliCommand {
     /// List browser credentials for active sessions owned by the current user.
     Sessions(SessionsArgs),
+
+    /// Print safe metadata for the Starship prompt integration.
+    Starship,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -219,6 +222,12 @@ mod tests {
             cli.subcommand,
             Some(CliCommand::Sessions(SessionsArgs { json: true }))
         ));
+    }
+
+    #[test]
+    fn starship_subcommand_does_not_require_a_child_command() {
+        let cli = Cli::try_parse_from(["rterm", "starship"]).unwrap();
+        assert!(matches!(cli.subcommand, Some(CliCommand::Starship)));
     }
 
     #[test]

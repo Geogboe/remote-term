@@ -46,6 +46,7 @@ src/
 │   ├── raw_terminal.rs  Crossterm raw mode guard (RAII)
 │   ├── registry.rs      Per-user active-session discovery records
 │   └── scrollback.rs    Ring buffer for PTY output replay
+├── starship.rs          Safe prompt metadata and formatter
 └── web/
     ├── mod.rs           Re-exports
     ├── assets.rs        compile-time embedded static assets (include_str!)
@@ -130,6 +131,13 @@ directory. Records contain the PID, executable name, mode, and full browser
 URLs. Writes are atomic; an RAII guard removes the record on normal shutdown.
 `rterm sessions` probes the authenticated local route and removes stale or
 malformed records, with a short grace period for sessions still starting.
+
+### `starship`
+
+Builds a validated, non-secret prompt segment from `RTERM_SESSION_*`
+environment variables. `rterm starship` emits the segment only when all fields
+match the expected numeric or enumerated forms, preventing inherited
+environment values from injecting terminal control sequences.
 
 ### `session::pty`
 

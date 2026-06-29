@@ -67,6 +67,13 @@ ID.
 The guard limits accidental exposure of an elevated shell. It does not reduce
 the privileges of the child when bypassed.
 
+## Prompt Integration
+
+The optional Starship integration exports only a numeric session ID and
+enumerated mode values. Browser tokens and tokenized URLs are not placed in the
+prompt environment. `rterm starship` validates inherited values before printing
+them to prevent prompt control-sequence injection.
+
 ## LAN Exposure
 
 `--lan` changes the bind address from loopback to all interfaces. This is an explicit opt-in with warnings:

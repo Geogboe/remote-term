@@ -9,6 +9,7 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 use crate::platform::command;
+use crate::starship::SessionMetadata;
 
 use super::{PtyCommand, scrollback::Scrollback};
 
@@ -22,6 +23,7 @@ pub struct SpawnConfig<'a> {
     pub output_tx: broadcast::Sender<Vec<u8>>,
     pub scrollback: Scrollback,
     pub exit_marker: &'a str,
+    pub session_metadata: &'a SessionMetadata,
     pub response_tx: mpsc::UnboundedSender<PtyCommand>,
     pub synthesize_terminal_responses: bool,
     pub exit_tx: oneshot::Sender<u8>,
@@ -40,6 +42,7 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
         output_tx,
         scrollback,
         exit_marker,
+        session_metadata,
         response_tx,
         synthesize_terminal_responses,
         exit_tx,
@@ -58,6 +61,9 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
     let mut builder = CommandBuilder::new(std::env::current_exe()?);
     builder.cwd(std::env::current_dir().context("failed to determine child working directory")?);
     builder.env("RTERM_EXIT_FILE", &exit_file);
+    for (name, value) in session_metadata.environment() {
+        builder.env(name, value);
+    }
     builder.arg("__rterm-child");
     builder.arg(exit_marker);
     builder.arg("--");

@@ -56,6 +56,7 @@ Native Linux CI compiles both musl release targets before a release tag is used.
 | `task smoke:web` | Probe tokenized web routes on localhost |
 | `task smoke:browser-input` | Drive Backspace, word erase, arrows, Ctrl+C, resize, and paste through WebSocket and a real PTY |
 | `task smoke:sessions` | Verify live-session lookup and registry cleanup |
+| `task smoke:starship` | Verify Starship metadata visibility inside a wrapped child |
 | `task ci` | Run all checks and native smoke paths |
 
 ### Manual Testing

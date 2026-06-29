@@ -20,6 +20,7 @@
 12. **PTY Spawn**:
    - Allocates PTY via `portable-pty`
    - Sets the PTY child working directory to rterm's current directory
+   - Injects non-secret `RTERM_SESSION_*` prompt metadata
    - Spawns child process by re-executing rterm itself with `__rterm-child <marker> -- <command>`
    - On Windows, installs a helper-only Ctrl+C handler so the wrapper survives while the real child handles the interrupt
    - Starts four background threads: reader, writer, child-waiter, exit-file-watcher

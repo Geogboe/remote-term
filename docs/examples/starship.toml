@@ -1,0 +1,6 @@
+[custom.rterm]
+command = 'rterm starship'
+when = true
+style = 'bold blue'
+format = '([$output]($style) )'
+description = 'Current rterm session'

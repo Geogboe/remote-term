@@ -122,6 +122,12 @@ tasks:
       - cargo build
       - pwsh -NoProfile -File scripts/smoke-sessions.ps1
 
+  smoke:starship:
+    desc: Verify Starship metadata is hidden outside and available inside a session
+    cmds:
+      - cargo build
+      - pwsh -NoProfile -File scripts/smoke-starship.ps1
+
   ci:
     desc: Run the full native CI validation path
     cmds:
@@ -131,3 +137,4 @@ tasks:
       - task: smoke:web
       - task: smoke:browser-input
       - task: smoke:sessions
+      - task: smoke:starship

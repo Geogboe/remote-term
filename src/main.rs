@@ -7,6 +7,7 @@ use rterm::platform::command;
 use rterm::platform::{ctrl_c, elevation, lan_ip, wsl};
 use rterm::security::token;
 use rterm::session::{RunConfig, registry, run_session};
+use rterm::starship;
 use rterm::web::server;
 use tracing_subscriber::EnvFilter;
 
@@ -138,6 +139,12 @@ fn run_cli_command(command: CliCommand) -> anyhow::Result<u8> {
                         println!("  LAN URL:   {url}");
                     }
                 }
+            }
+            Ok(0)
+        }
+        CliCommand::Starship => {
+            if let Some(segment) = starship::segment() {
+                println!("{segment}");
             }
             Ok(0)
         }

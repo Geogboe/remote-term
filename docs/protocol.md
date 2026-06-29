@@ -36,6 +36,7 @@ Sent on WebSocket connect. Informs the client of its capabilities.
 {
   "type": "status",
   "writable": true,
+  "backspace": [127],
   "word_erase": [23]
 }
 ```
@@ -43,6 +44,7 @@ Sent on WebSocket connect. Informs the client of its capabilities.
 | Field | Type | Description |
 |-------|------|-------------|
 | `writable` | `bool` | Whether this client can write input to the PTY |
+| `backspace` | `[u8]` | Byte sequence for Backspace (default `[127]` = DEL) |
 | `word_erase` | `[u8]` | Byte sequence for Ctrl+Backspace (default `[23]` = `\x17`) |
 
 #### Error
@@ -109,7 +111,7 @@ Client                          Server
   │                                ├── Acquire ClientPermit
   │                                │
   │◄── 101 Switching Protocols ────┤
-  │◄── Control: status ────────────┤  (writable mode, word-erase)
+  │◄── Control: status ────────────┤  (writable mode, Backspace, word-erase)
   │◄── Output: scrollback replay ──┤  (recent terminal output)
   │                                │
   │◄══ Output frames (streaming) ══┤  (live PTY output)

@@ -22,6 +22,7 @@ pub struct RunConfig {
     pub once: bool,
     pub headless: bool,
     pub token: String,
+    pub backspace: Vec<u8>,
     pub word_erase: Vec<u8>,
 }
 
@@ -37,6 +38,7 @@ pub struct SessionState {
     pub web_write: bool,
     pub max_clients: usize,
     pub once: bool,
+    pub backspace: Vec<u8>,
     pub word_erase: Vec<u8>,
     pub browser_resize: bool,
     pub input_tx: mpsc::UnboundedSender<PtyCommand>,
@@ -54,6 +56,7 @@ impl SessionState {
             web_write: config.web_write,
             max_clients: config.max_clients,
             once: config.once,
+            backspace: config.backspace.clone(),
             word_erase: config.word_erase.clone(),
             browser_resize: config.headless,
             input_tx,
@@ -200,6 +203,7 @@ mod tests {
             once: true,
             headless: false,
             token: "abc".to_string(),
+            backspace: vec![0x08],
             word_erase: vec![0x17],
         }
     }

@@ -23,6 +23,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [target.'cfg(windows)'.dependencies]
 check_elevation = "0.2"
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

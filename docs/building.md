@@ -50,6 +50,7 @@ rterm uses [Taskfile](https://taskfile.dev) for build orchestration.
 | `task smoke` | Run a quick child output smoke test |
 | `task smoke:exit-code` | Verify child exit code propagation |
 | `task smoke:web` | Probe tokenized web routes on localhost |
+| `task smoke:browser-input` | Drive Backspace, word erase, arrows, Ctrl+C, resize, and paste through WebSocket and a real PTY |
 | `task smoke:sessions` | Verify live-session lookup and registry cleanup |
 | `task ci` | Run all checks and native smoke paths |
 

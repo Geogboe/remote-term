@@ -63,12 +63,14 @@ Recorded 2026-06-26 from the local Windows ARM64 development environment:
 
 ```text
 task fmt        passed
-task test       passed, 28 tests
+task test       passed, 31 tests
 task lint       passed
 task web:test   passed, 4 tests
 task web:build  passed
 task smoke      passed, printed rterm-smoke and exited 0
 task smoke:web  passed, valid token 200, asset 200, wrong token 404
+task smoke:browser-input passed, Backspace, word erase, arrow history,
+                         Ctrl+C, resize, 2 KiB paste, and inherited cwd through real ConPTY
 task smoke:sessions passed, live JSON lookup and cleanup verified
 task ci         passed
 ```
@@ -79,12 +81,8 @@ child's exit status `7`, and reported the smoke as passed.
 Still needs validation on real interactive terminals:
 
 ```text
-Ctrl+C
 Ctrl+D
-Ctrl+Backspace / word erase
-arrows
-large paste
-resize
+local arrow keys
 alternate screen
 browser write input from a real browser
 ```

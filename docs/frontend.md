@@ -62,7 +62,7 @@ The application performs these steps on load:
 1. **Token extraction**: Reads `window.RTERM_TOKEN` (or falls back to path parsing)
 2. **Terminal initialization**: Creates xterm.js `Terminal` with a stable nonblinking cursor, dark terminal theme, and `FitAddon`
 3. **WebSocket connection**: Connects to `ws://host/ws/{token}` with binary mode
-4. **Status handshake**: Receives initial `status` control frame (writable mode, word-erase sequence)
+4. **Status handshake**: Receives initial `status` control frame (writable mode, Backspace sequence, word-erase sequence)
 5. **Scrollback replay**: Receives buffered output frames to populate the terminal
 6. **Live streaming**: Enters the message loop for real-time terminal I/O
 7. **Status rail**: Shows connection and read-only/writable state
@@ -115,7 +115,7 @@ The Ctrl+Backspace button sends the `word_erase` sequence from the server status
 #### Keyboard Handling
 
 - General keyboard input is forwarded to the server via `term.onData()`
-- Backspace is intercepted before xterm's default handler and sends one DEL byte
+- Backspace is intercepted before xterm's default handler and sends exactly one server-configured sequence (DEL by default)
 - `Ctrl+Backspace` sends exactly one configured word-erase sequence
 - Keyup is consumed without sending a second erase sequence
 - Alt/Meta-modified Backspace remains under xterm control

@@ -11,6 +11,7 @@ const writeMode = document.getElementById("write-mode");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let writable = false;
+let backspace = new Uint8Array([0x7f]);
 let wordErase = new Uint8Array([0x17]);
 let connected = false;
 
@@ -83,6 +84,7 @@ socket.addEventListener("message", (event) => {
     const control = JSON.parse(decoder.decode(payload));
     if (control.type === "status") {
       writable = control.writable;
+      backspace = new Uint8Array(control.backspace || [0x7f]);
       wordErase = new Uint8Array(control.word_erase || [0x17]);
       connected = true;
       term.options.disableStdin = !writable;
@@ -104,7 +106,7 @@ socket.addEventListener("error", () => {
 
 term.onData((data) => sendBytes(encoder.encode(data)));
 term.attachCustomKeyEventHandler((event) => {
-  const bytes = overrideBytesForKey(event, wordErase);
+  const bytes = overrideBytesForKey(event, backspace, wordErase);
   if (bytes === undefined) return true;
   if (bytes.length > 0) sendBytes(bytes);
   return false;
@@ -112,7 +114,7 @@ term.attachCustomKeyEventHandler((event) => {
 window.addEventListener("resize", resize);
 
 const buttons = [
-  ["Esc", "\x1b"], ["Tab", "\t"], ["⌫", new Uint8Array([0x7f])],
+  ["Esc", "\x1b"], ["Tab", "\t"], ["⌫", () => backspace],
   ["Ctrl+C", "\x03"], ["Ctrl+D", "\x04"], ["Ctrl+⌫", () => wordErase],
   ["Enter", "\r"], ["↑", "\x1b[A"], ["↓", "\x1b[B"],
   ["←", "\x1b[D"], ["→", "\x1b[C"]

@@ -110,6 +110,12 @@ tasks:
       - cargo build
       - pwsh -NoProfile -File scripts/smoke-web.ps1
 
+  smoke:browser-input:
+    desc: Verify browser Backspace, history arrows, and Ctrl+C through a real PTY
+    cmds:
+      - cargo build
+      - node scripts/smoke-browser-input.mjs
+
   smoke:sessions:
     desc: Verify session discovery and registry cleanup
     cmds:
@@ -123,4 +129,5 @@ tasks:
       - task: smoke
       - task: smoke:exit-code
       - task: smoke:web
+      - task: smoke:browser-input
       - task: smoke:sessions

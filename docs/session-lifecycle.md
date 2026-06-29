@@ -19,7 +19,9 @@
    - Spawns stdout writer task (async, receives from broadcast and writes to stdout)
 11. **PTY Spawn**:
    - Allocates PTY via `portable-pty`
+   - Sets the PTY child working directory to rterm's current directory
    - Spawns child process by re-executing rterm itself with `__rterm-child <marker> -- <command>`
+   - On Windows, installs a helper-only Ctrl+C handler so the wrapper survives while the real child handles the interrupt
    - Starts four background threads: reader, writer, child-waiter, exit-file-watcher
 12. **Resize Watcher**: If not headless, polls terminal size every 250ms.
 13. **Web Server**: Spawns axum server on the TCP listener.
@@ -81,7 +83,7 @@ Client connects
   ├── Token validated? No → 401 Unauthorized
   ├── ClientPermit available? No → 429 Too Many Requests
   │
-  ├── Send status frame (writable mode, word-erase sequence)
+  ├── Send status frame (writable mode, Backspace, word-erase sequences)
   ├── Send scrollback replay
   ├── Enter select loop:
   │     select! {

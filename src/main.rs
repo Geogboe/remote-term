@@ -4,7 +4,7 @@ use anyhow::Context;
 use clap::Parser;
 use rterm::cli::{Cli, CliCommand, RunArgs};
 use rterm::platform::command;
-use rterm::platform::{elevation, lan_ip, wsl};
+use rterm::platform::{ctrl_c, elevation, lan_ip, wsl};
 use rterm::security::token;
 use rterm::session::{RunConfig, registry, run_session};
 use tracing_subscriber::EnvFilter;
@@ -30,6 +30,11 @@ async fn main() -> ExitCode {
 }
 
 fn child_helper(args: &[String]) -> ExitCode {
+    if let Err(error) = ctrl_c::protect_child_helper() {
+        eprintln!("rterm: failed to protect child helper from Ctrl+C: {error:#}");
+        return ExitCode::from(1);
+    }
+
     let Some(marker) = args.first() else {
         return ExitCode::from(127);
     };
@@ -70,6 +75,7 @@ async fn run() -> anyhow::Result<u8> {
 
     let bind_addr = cli.effective_bind();
     let word_erase = cli.decoded_word_erase();
+    let backspace = cli.decoded_backspace();
     let run = cli.run;
     anyhow::ensure!(
         !run.command.is_empty(),
@@ -92,6 +98,7 @@ async fn run() -> anyhow::Result<u8> {
         once: run.once,
         headless: run.headless,
         token,
+        backspace,
         word_erase,
     };
 

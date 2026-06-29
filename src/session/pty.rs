@@ -56,6 +56,7 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
     let resolved_command = command::resolve(command)?;
 
     let mut builder = CommandBuilder::new(std::env::current_exe()?);
+    builder.cwd(std::env::current_dir().context("failed to determine child working directory")?);
     builder.env("RTERM_EXIT_FILE", &exit_file);
     builder.arg("__rterm-child");
     builder.arg(exit_marker);

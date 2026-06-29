@@ -65,6 +65,10 @@ pub struct RunArgs {
     #[arg(long)]
     pub allow_elevated: bool,
 
+    /// Browser Backspace byte sequence. Defaults to DEL.
+    #[arg(long)]
+    pub backspace: Option<String>,
+
     /// Browser Ctrl+Backspace/word-erase byte sequence. Default is Ctrl+W.
     #[arg(long, default_value = "\\x17")]
     pub word_erase: String,
@@ -90,6 +94,18 @@ impl Cli {
     pub fn decoded_word_erase(&self) -> Vec<u8> {
         decode_escaped_bytes(&self.run.word_erase)
     }
+
+    pub fn decoded_backspace(&self) -> Vec<u8> {
+        self.run
+            .backspace
+            .as_deref()
+            .map(decode_escaped_bytes)
+            .unwrap_or_else(default_backspace)
+    }
+}
+
+fn default_backspace() -> Vec<u8> {
+    vec![0x7f]
 }
 
 fn decode_escaped_bytes(input: &str) -> Vec<u8> {
@@ -154,6 +170,18 @@ mod tests {
     fn default_word_erase_decodes_to_ctrl_w() {
         let cli = Cli::try_parse_from(["rterm", "--", "codex"]).unwrap();
         assert_eq!(cli.decoded_word_erase(), vec![0x17]);
+    }
+
+    #[test]
+    fn default_backspace_matches_the_vt_input_convention() {
+        let cli = Cli::try_parse_from(["rterm", "--", "codex"]).unwrap();
+        assert_eq!(cli.decoded_backspace(), vec![0x7f]);
+    }
+
+    #[test]
+    fn explicit_backspace_supports_escape_sequences() {
+        let cli = Cli::try_parse_from(["rterm", "--backspace", "\\x7f", "--", "bash"]).unwrap();
+        assert_eq!(cli.decoded_backspace(), vec![0x7f]);
     }
 
     #[test]

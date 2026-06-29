@@ -127,6 +127,18 @@ rterm -- bash
 rterm --word-erase '\x1b\x7f' -- bash
 ```
 
+### `--backspace <SEQUENCE>`
+
+Byte sequence sent when the browser user presses Backspace. The default is
+`\x7f` (DEL), matching the documented VT input sequence used by ConPTY and Unix
+terminals.
+
+```bash
+rterm --backspace '\x08' -- bash
+```
+
+This option supports the same escape syntax as `--word-erase`.
+
 ## Session Modes
 
 ### Local Primary, Web Secondary (Default)

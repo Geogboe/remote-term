@@ -33,6 +33,7 @@ src/
 ├── platform/
 │   ├── mod.rs           Re-exports
 │   ├── command.rs       Cross-platform command resolution
+│   ├── ctrl_c.rs        Windows child-helper Ctrl+C protection
 │   ├── elevation.rs     Windows token / Unix effective-UID guard
 │   ├── lan_ip.rs        LAN IP detection
 │   └── wsl.rs           WSL detection and guidance
@@ -59,7 +60,7 @@ src/
 
 The binary entry point. Handles two execution paths:
 
-1. **`__rterm-child`**: Internal re-execution marker. When rterm spawns a PTY child, it re-executes itself with `__rterm-child <marker> -- <command>`. This child helper runs the real user command, writes the exit code to both a temp file and an OSC escape sequence on stdout, then exits.
+1. **`__rterm-child`**: Internal re-execution marker. When rterm spawns a PTY child, it re-executes itself with `__rterm-child <marker> -- <command>`. This child helper runs the real user command, writes the exit code to both a temp file and an OSC escape sequence on stdout, then exits. On Windows, an application-defined console handler consumes Ctrl+C in the helper process so the wrapped shell can interrupt its active command without terminating the wrapper.
 
 2. **Management mode**: `rterm sessions` probes and lists live per-user registry records.
 
@@ -81,11 +82,13 @@ Uses `clap` derive macros for argument parsing. Fields:
 | `--headless` | `bool` | `false` | Do not attach local terminal to the PTY |
 | `--token` | `Option<String>` | `None` (auto-generated) | Manual URL token |
 | `--allow-elevated` | `bool` | `false` | Permit root/elevated session startup |
+| `--backspace` | `Option<String>` | `\x7f` (DEL) | Browser Backspace byte sequence |
 | `--word-erase` | `String` | `\x17` (Ctrl+W) | Browser Ctrl+Backspace byte sequence |
 | `[command]` | `Vec<String>` | (required) | Command after `--` separator |
 
 Methods:
 - `effective_bind()`: When `--lan` is set and bind is loopback, returns `0.0.0.0:<port>`.
+- `decoded_backspace()`: Uses the VT DEL default or parses an explicit sequence.
 - `decoded_word_erase()`: Parses escape sequences like `\x1b\x7f` into bytes.
 
 ### `platform::command`
@@ -140,6 +143,10 @@ The PTY subsystem. Spawns four background threads:
 Additional components:
 - **`ExitMarkerFilter`**: State machine that scans PTY output for `ESC]6973;rterm-exit:<marker>:<code>\x07` sequences, removes them from output, and emits `ReaderEvent::Exit(code)`.
 - **`TerminalResponder`**: In headless/non-interactive mode, watches for cursor position queries (`\x1b[6n`) and responds with `\x1b[1;1R`.
+
+The PTY command builder explicitly inherits rterm's current working directory.
+This overrides `portable-pty`'s Windows home-directory default and preserves
+the expected `cd repo; rterm -- <command>` workflow.
 - **`start_local_bridge()`**: Spawns stdin-reader and stdout-writer tasks to bridge the local terminal to the PTY.
 - **`start_resize_watcher()`**: Polls terminal size every 250ms and sends resize commands when dimensions change.
 
@@ -175,7 +182,7 @@ Client → Server:
 - `{"type": "ping"}`
 
 Server → Client:
-- `{"type": "status", "writable": true, "word_erase": [23]}`
+- `{"type": "status", "writable": true, "backspace": [127], "word_erase": [23]}`
 - `{"type": "error", "message": "browser input is disabled; restart with --write"}`
 - `{"type": "pong"}`
 
@@ -195,7 +202,7 @@ Invalid tokens return `404` (terminal page) or `401` (WebSocket). Exceeding `max
 WebSocket handler lifecycle:
 1. Validate token → 401 if invalid
 2. Acquire `ClientPermit` → 429 if no slots available
-3. On connect: send `status` control frame (writable mode, word-erase sequence)
+3. On connect: send `status` control frame (writable mode, Backspace and word-erase sequences)
 4. Send scrollback replay (snapshot of recent output)
 5. Enter select loop: read from both the client WebSocket and the PTY broadcast channel
 6. On disconnect: `ClientPermit` drop releases slot; if `--once`, marks session as closed to new clients

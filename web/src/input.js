@@ -1,4 +1,4 @@
-export function overrideBytesForKey(event, wordErase) {
+export function overrideBytesForKey(event, backspace, wordErase) {
   if (event.key !== "Backspace" || event.altKey || event.metaKey) {
     return undefined;
   }
@@ -7,5 +7,5 @@ export function overrideBytesForKey(event, wordErase) {
     return new Uint8Array();
   }
 
-  return event.ctrlKey ? wordErase : new Uint8Array([0x7f]);
+  return event.ctrlKey ? wordErase : backspace;
 }

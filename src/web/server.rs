@@ -94,6 +94,7 @@ async fn handle_socket(socket: WebSocket, session: Arc<SessionState>, _permit: C
 
     let frame = match protocol::encode_server_control(&protocol::ServerControl::Status {
         writable: session.web_write,
+        backspace: session.backspace.clone(),
         word_erase: session.word_erase.clone(),
     }) {
         Ok(frame) => frame,
@@ -201,6 +202,7 @@ mod tests {
             once: false,
             headless: false,
             token: token.to_string(),
+            backspace: vec![0x08],
             word_erase: vec![0x17],
         };
         AppState {

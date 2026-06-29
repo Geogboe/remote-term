@@ -438,6 +438,7 @@ Useful flags:
 --token <manual-token>
 --write
 --max-clients 1
+--backspace \x7f
 --once
 --idle-timeout 15m
 --exit-on-disconnect

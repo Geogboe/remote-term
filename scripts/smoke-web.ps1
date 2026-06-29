@@ -1,11 +1,13 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
-$exe = Join-Path $root 'target\debug\rterm.exe'
+$binaryName = if ($IsWindows) { 'rterm.exe' } else { 'rterm' }
+$exe = Join-Path $root "target/debug/$binaryName"
 $token = 'smoke-token'
 $port = 17843
-$outLog = Join-Path $env:TEMP 'rterm-smoke-web.out.log'
-$errLog = Join-Path $env:TEMP 'rterm-smoke-web.err.log'
+$tempPath = [System.IO.Path]::GetTempPath()
+$outLog = Join-Path $tempPath 'rterm-smoke-web.out.log'
+$errLog = Join-Path $tempPath 'rterm-smoke-web.err.log'
 
 Remove-Item -LiteralPath $outLog, $errLog -ErrorAction SilentlyContinue
 
@@ -18,13 +20,17 @@ $arguments = @(
   'pwsh', '-NoProfile', '-Command', 'Start-Sleep -Seconds 60'
 )
 
-$proc = Start-Process `
-  -FilePath $exe `
-  -ArgumentList $arguments `
-  -RedirectStandardOutput $outLog `
-  -RedirectStandardError $errLog `
-  -WindowStyle Hidden `
-  -PassThru
+$start = @{
+  FilePath = $exe
+  ArgumentList = $arguments
+  RedirectStandardOutput = $outLog
+  RedirectStandardError = $errLog
+  PassThru = $true
+}
+if ($IsWindows) {
+  $start.WindowStyle = 'Hidden'
+}
+$proc = Start-Process @start
 
 try {
   $base = "http://127.0.0.1:$port"

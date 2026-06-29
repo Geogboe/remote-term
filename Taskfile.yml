@@ -128,6 +128,12 @@ tasks:
       - cargo build
       - pwsh -NoProfile -File scripts/smoke-starship.ps1
 
+  smoke:final-output:
+    desc: Verify output from immediately exiting children is drained
+    cmds:
+      - cargo build
+      - pwsh -NoProfile -File scripts/smoke-final-output.ps1
+
   ci:
     desc: Run the full native CI validation path
     cmds:
@@ -138,3 +144,4 @@ tasks:
       - task: smoke:browser-input
       - task: smoke:sessions
       - task: smoke:starship
+      - task: smoke:final-output

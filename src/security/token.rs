@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use anyhow::ensure;
 use diceware_wordlists::Wordlist;
 use rand::prelude::IndexedRandom;
@@ -5,8 +7,21 @@ use rand::prelude::IndexedRandom;
 pub const GENERATED_WORD_COUNT: usize = 5;
 pub const MAX_EXPLICIT_TOKEN_LEN: usize = 256;
 
+static ELIGIBLE_WORDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    Wordlist::EffLong
+        .get_list()
+        .iter()
+        .copied()
+        .filter(|word| !word.contains('-'))
+        .collect()
+});
+
+fn eligible_words() -> &'static [&'static str] {
+    &ELIGIBLE_WORDS
+}
+
 pub fn generate() -> String {
-    let words = Wordlist::EffLong.get_list();
+    let words = eligible_words();
     let mut rng = rand::rng();
 
     (0..GENERATED_WORD_COUNT)
@@ -47,10 +62,11 @@ mod tests {
     fn generated_tokens_are_five_eff_words() {
         let token = generate();
         let words = token.split('-').collect::<Vec<_>>();
-        let wordlist = diceware_wordlists::Wordlist::EffLong.get_list();
+        let wordlist = eligible_words();
 
         assert_eq!(words.len(), 5);
-        assert_eq!(wordlist.len(), 7_776);
+        assert_eq!(wordlist.len(), 7_772);
+        assert!(wordlist.iter().all(|word| !word.contains('-')));
         assert!(words.iter().all(|word| wordlist.contains(word)));
     }
 

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::starship::SessionMetadata;
 use crate::web::server::{self, AppState};
@@ -45,6 +45,7 @@ pub struct SessionState {
     pub input_tx: mpsc::UnboundedSender<PtyCommand>,
     pub output_tx: broadcast::Sender<Vec<u8>>,
     pub scrollback: scrollback::Scrollback,
+    shutdown_tx: watch::Sender<bool>,
     active_clients: std::sync::atomic::AtomicUsize,
     closed_to_new_clients: std::sync::atomic::AtomicBool,
 }
@@ -52,6 +53,7 @@ pub struct SessionState {
 impl SessionState {
     pub fn new(config: &RunConfig, input_tx: mpsc::UnboundedSender<PtyCommand>) -> Arc<Self> {
         let (output_tx, _) = broadcast::channel(256);
+        let (shutdown_tx, _) = watch::channel(false);
         Arc::new(Self {
             token: config.token.clone(),
             web_write: config.web_write,
@@ -63,6 +65,7 @@ impl SessionState {
             input_tx,
             output_tx,
             scrollback: scrollback::Scrollback::new(1024 * 1024),
+            shutdown_tx,
             active_clients: std::sync::atomic::AtomicUsize::new(0),
             closed_to_new_clients: std::sync::atomic::AtomicBool::new(false),
         })
@@ -105,6 +108,14 @@ impl SessionState {
         self.active_clients
             .load(std::sync::atomic::Ordering::SeqCst)
     }
+
+    pub fn subscribe_shutdown(&self) -> watch::Receiver<bool> {
+        self.shutdown_tx.subscribe()
+    }
+
+    fn begin_shutdown(&self) {
+        self.shutdown_tx.send_replace(true);
+    }
 }
 
 #[derive(Debug)]
@@ -136,27 +147,35 @@ pub async fn run_session(
 
     let interactive_terminal = raw_terminal::is_interactive_terminal();
 
-    let local_handles = if config.headless {
-        Vec::new()
+    let (local_bridge, local_output_tx) = if config.headless {
+        (None, None)
     } else {
-        pty::start_local_bridge(
-            input_tx.clone(),
-            state.output_tx.subscribe(),
-            interactive_terminal,
+        let (local_output_tx, local_output_rx) = mpsc::channel(256);
+        (
+            Some(pty::start_local_bridge(
+                input_tx.clone(),
+                local_output_rx,
+                interactive_terminal,
+            )),
+            Some(local_output_tx),
         )
     };
 
     let (exit_tx, exit_rx) = oneshot::channel();
+    let (output_complete_tx, output_complete_rx) = oneshot::channel();
+    let exit_marker = pty::generate_exit_marker();
     let pty = pty::spawn(pty::SpawnConfig {
         command: &config.command,
         input_rx,
         output_tx: state.output_tx.clone(),
+        local_output_tx,
         scrollback: state.scrollback.clone(),
-        exit_marker: &config.token,
+        exit_marker: &exit_marker,
         session_metadata: &session_metadata,
         response_tx: input_tx.clone(),
         synthesize_terminal_responses,
         exit_tx,
+        output_complete_tx,
     })
     .context("failed to spawn PTY child")?;
 
@@ -177,12 +196,19 @@ pub async fn run_session(
     ));
 
     let exit_code = exit_rx.await.unwrap_or(1);
+    let _ = tokio::time::timeout(Duration::from_secs(1), output_complete_rx).await;
+
+    state.begin_shutdown();
+    let client_drain_deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+    while state.active_clients() > 0 && tokio::time::Instant::now() < client_drain_deadline {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 
     drop(input_tx);
     pty.join_writer();
 
-    for handle in local_handles {
-        handle.abort();
+    if let Some(bridge) = local_bridge {
+        bridge.abort();
     }
     if let Some(handle) = resize_handle {
         handle.abort();

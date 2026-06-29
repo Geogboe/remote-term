@@ -17,16 +17,27 @@ pub struct PtyHandle {
     _writer_thread: std::thread::JoinHandle<()>,
 }
 
+pub struct LocalBridge {
+    output_handle: JoinHandle<()>,
+}
+
+pub enum LocalOutput {
+    Data(Vec<u8>),
+    Barrier(std::sync::mpsc::Sender<()>),
+}
+
 pub struct SpawnConfig<'a> {
     pub command: &'a [String],
     pub input_rx: mpsc::UnboundedReceiver<PtyCommand>,
     pub output_tx: broadcast::Sender<Vec<u8>>,
+    pub local_output_tx: Option<mpsc::Sender<LocalOutput>>,
     pub scrollback: Scrollback,
     pub exit_marker: &'a str,
     pub session_metadata: &'a SessionMetadata,
     pub response_tx: mpsc::UnboundedSender<PtyCommand>,
     pub synthesize_terminal_responses: bool,
     pub exit_tx: oneshot::Sender<u8>,
+    pub output_complete_tx: oneshot::Sender<()>,
 }
 
 impl PtyHandle {
@@ -35,17 +46,25 @@ impl PtyHandle {
     }
 }
 
+impl LocalBridge {
+    pub fn abort(self) {
+        self.output_handle.abort();
+    }
+}
+
 pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
     let SpawnConfig {
         command,
         input_rx,
         output_tx,
+        local_output_tx,
         scrollback,
         exit_marker,
         session_metadata,
         response_tx,
         synthesize_terminal_responses,
         exit_tx,
+        output_complete_tx,
     } = config;
 
     anyhow::ensure!(!command.is_empty(), "command is required");
@@ -100,6 +119,7 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
             let mut buf = [0_u8; 8192];
             let mut responder = TerminalResponder::new(response_tx, synthesize_terminal_responses);
             let mut filter = ExitMarkerFilter::new(reader_exit_marker);
+            let mut output_complete_tx = Some(output_complete_tx);
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => {
@@ -107,6 +127,9 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
                             if let ReaderEvent::Output(bytes) = event {
                                 responder.observe(&bytes);
                                 scrollback.push(&bytes);
+                                if let Some(tx) = &local_output_tx {
+                                    let _ = tx.blocking_send(LocalOutput::Data(bytes.clone()));
+                                }
                                 let _ = output_tx.send(bytes);
                             }
                         }
@@ -118,9 +141,21 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
                                 ReaderEvent::Output(bytes) => {
                                     responder.observe(&bytes);
                                     scrollback.push(&bytes);
+                                    if let Some(tx) = &local_output_tx {
+                                        let _ = tx.blocking_send(LocalOutput::Data(bytes.clone()));
+                                    }
                                     let _ = output_tx.send(bytes);
                                 }
                                 ReaderEvent::Exit(code) => {
+                                    if let Some(tx) = &local_output_tx {
+                                        let (done_tx, done_rx) = std::sync::mpsc::channel();
+                                        if tx.blocking_send(LocalOutput::Barrier(done_tx)).is_ok() {
+                                            let _ = done_rx.recv_timeout(Duration::from_secs(1));
+                                        }
+                                    }
+                                    if let Some(tx) = output_complete_tx.take() {
+                                        let _ = tx.send(());
+                                    }
                                     if let Some(tx) = reader_exit_sender
                                         .lock()
                                         .expect("exit mutex poisoned")
@@ -195,6 +230,10 @@ pub fn spawn(config: SpawnConfig<'_>) -> anyhow::Result<PtyHandle> {
     })
 }
 
+pub fn generate_exit_marker() -> String {
+    format!("{:032x}", rand::random::<u128>())
+}
+
 fn writer_loop(
     mut input_rx: mpsc::UnboundedReceiver<PtyCommand>,
     writer: &mut Box<dyn Write + Send>,
@@ -225,9 +264,9 @@ fn writer_loop(
 
 pub fn start_local_bridge(
     input_tx: mpsc::UnboundedSender<PtyCommand>,
-    mut output_rx: broadcast::Receiver<Vec<u8>>,
+    mut output_rx: mpsc::Receiver<LocalOutput>,
     attach_input: bool,
-) -> Vec<JoinHandle<()>> {
+) -> LocalBridge {
     if attach_input {
         let _ = std::thread::Builder::new()
             .name("rterm-local-stdin".to_string())
@@ -250,22 +289,27 @@ pub fn start_local_bridge(
     }
 
     let output_handle = tokio::spawn(async move {
-        loop {
-            match output_rx.recv().await {
-                Ok(bytes) => {
-                    let mut stdout = std::io::stdout().lock();
-                    if stdout.write_all(&bytes).is_err() {
-                        break;
-                    }
-                    let _ = stdout.flush();
-                }
-                Err(broadcast::error::RecvError::Lagged(_)) => {}
-                Err(broadcast::error::RecvError::Closed) => break,
-            }
-        }
+        let mut stdout = std::io::stdout();
+        local_output_loop(&mut output_rx, &mut stdout).await;
     });
 
-    vec![output_handle]
+    LocalBridge { output_handle }
+}
+
+async fn local_output_loop(output_rx: &mut mpsc::Receiver<LocalOutput>, writer: &mut impl Write) {
+    while let Some(output) = output_rx.recv().await {
+        match output {
+            LocalOutput::Data(bytes) => {
+                if writer.write_all(&bytes).is_err() || writer.flush().is_err() {
+                    break;
+                }
+            }
+            LocalOutput::Barrier(done_tx) => {
+                let _ = writer.flush();
+                let _ = done_tx.send(());
+            }
+        }
+    }
 }
 
 pub fn start_resize_watcher(
@@ -491,5 +535,29 @@ mod tests {
             filter.push(b"-exit:abc:42\x07"),
             vec![ReaderEvent::Exit(42)]
         );
+    }
+
+    #[test]
+    fn generated_exit_markers_are_opaque_hex_values() {
+        let marker = generate_exit_marker();
+        assert_eq!(marker.len(), 32);
+        assert!(marker.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    }
+
+    #[tokio::test]
+    async fn local_output_barrier_follows_all_queued_data() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        tx.send(LocalOutput::Data(b"final output".to_vec()))
+            .await
+            .unwrap();
+        tx.send(LocalOutput::Barrier(done_tx)).await.unwrap();
+        drop(tx);
+
+        let mut written = Vec::new();
+        local_output_loop(&mut rx, &mut written).await;
+
+        done_rx.try_recv().unwrap();
+        assert_eq!(written, b"final output");
     }
 }

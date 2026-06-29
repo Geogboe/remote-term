@@ -17,7 +17,8 @@ process exits.
 ## Decision
 
 Automatically generated credentials contain five independently and
-cryptographically selected words from EFF's 7,776-word long Diceware list,
+cryptographically selected words from the 7,772 separator-safe entries in
+EFF's long Diceware list,
 joined with hyphens:
 
 ```text
@@ -25,7 +26,9 @@ harbor-lime-orbit-cabin-velvet
 ```
 
 Five selections provide approximately 64.6 bits of entropy. Repeated words are
-allowed because rejecting them would bias generation.
+allowed because rejecting them would bias generation. Four EFF entries with
+internal hyphens are excluded so generated credentials always have exactly
+five unambiguous hyphen-separated parts.
 
 The application depends on `diceware_wordlists` for the audited word data and
 uses the existing `rand` dependency for selection. This keeps the wordlist out
@@ -42,8 +45,8 @@ rterm validates that they are non-empty URL-path-safe ASCII strings.
   remain impractical to guess through the online HTTP endpoint during a single
   session.
 - The executable contains the selected dependency's embedded wordlist.
-- Dependency upgrades must retain the same wordlist size and URL-safe word
-  properties or deliberately replace this ADR.
+- Dependency upgrades must retain 7,772 separator-safe entries and URL-safe
+  word properties or deliberately replace this ADR.
 
 ## Alternatives considered
 

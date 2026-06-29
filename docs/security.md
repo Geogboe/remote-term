@@ -26,9 +26,10 @@ rterm is conservative by default:
 
 ### Generation
 
-Tokens contain five independently selected words from EFF's 7,776-word long
-Diceware list. This provides approximately 64.6 bits of entropy. Selection uses
-the application's cryptographic random-number generator. See
+Tokens contain five independently selected words from the 7,772 entries in
+EFF's long Diceware list that do not contain internal hyphens. This provides
+approximately 64.6 bits of entropy and guarantees five unambiguous parts.
+Selection uses the application's cryptographic random-number generator. See
 `docs/adr/0001-human-readable-session-credentials.md`.
 
 ### Validation
@@ -51,6 +52,10 @@ Tokens are:
 - Stored in the current user's active-session registry while the session lives
 - Removed from the registry on normal shutdown
 - Pruned when stale or corrupt registry entries are encountered
+
+The PTY child helper uses a separate random internal exit marker. Browser
+credentials are not passed to the helper command line or used in temporary
+exit-signal filenames.
 
 On Unix, rterm creates the registry directory with mode `0700` and registry
 files with mode `0600`. On Windows, the registry inherits the current user's

@@ -63,7 +63,7 @@ Recorded 2026-06-29 from the local Windows ARM64 development environment:
 
 ```text
 task fmt        passed
-task test       passed, 38 tests
+task test       passed, 40 tests
 task lint       passed
 task web:test   passed, 4 tests
 task web:build  passed
@@ -74,6 +74,7 @@ task smoke:browser-input passed, Backspace, word erase, arrow history,
 task smoke:sessions passed, live JSON lookup, effective custom bind/ephemeral port,
                      and cleanup verified
 task smoke:starship passed, metadata hidden outside and shown inside a wrapped child
+task smoke:final-output passed, 10 immediate-exit repetitions
 task ci         passed
 ```
 

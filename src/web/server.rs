@@ -91,6 +91,7 @@ async fn websocket(
 async fn handle_socket(socket: WebSocket, session: Arc<SessionState>, _permit: ClientPermit) {
     let (mut sender, mut receiver) = socket.split();
     let mut output_rx = session.output_tx.subscribe();
+    let mut shutdown_rx = session.subscribe_shutdown();
 
     let frame = match protocol::encode_server_control(&protocol::ServerControl::Status {
         writable: session.web_write,
@@ -133,6 +134,17 @@ async fn handle_socket(socket: WebSocket, session: Arc<SessionState>, _permit: C
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+            changed = shutdown_rx.changed() => {
+                if changed.is_err() || *shutdown_rx.borrow() {
+                    while let Ok(bytes) = output_rx.try_recv() {
+                        if sender.send(Message::Binary(protocol::encode_output(&bytes).into())).await.is_err() {
+                            return;
+                        }
+                    }
+                    let _ = sender.send(Message::Close(None)).await;
+                    break;
                 }
             }
         }

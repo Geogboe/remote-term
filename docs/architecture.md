@@ -110,7 +110,8 @@ Detects WSL by reading `/proc/sys/kernel/osrelease` (or `/proc/version` as fallb
 
 ### `security::token`
 
-Generates five-word tokens from EFF's 7,776-word long list using `rand`.
+Generates five-word tokens from the separator-safe subset of EFF's long list
+using `rand`.
 Explicit tokens are restricted to URL-path-safe ASCII. Request validation uses
 exact string comparison.
 
@@ -150,6 +151,7 @@ The PTY subsystem. Spawns four background threads:
 
 Additional components:
 - **`ExitMarkerFilter`**: State machine that scans PTY output for `ESC]6973;rterm-exit:<marker>:<code>\x07` sequences, removes them from output, and emits `ReaderEvent::Exit(code)`.
+- **Local output barrier**: The PTY reader sends local output through an ordered bounded channel and waits for a final writer acknowledgment before session teardown.
 - **`TerminalResponder`**: In headless/non-interactive mode, watches for cursor position queries (`\x1b[6n`) and responds with `\x1b[1;1R`.
 
 The PTY command builder explicitly inherits rterm's current working directory.

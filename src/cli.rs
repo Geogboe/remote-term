@@ -1,6 +1,9 @@
 use std::net::SocketAddr;
 
+use anyhow::{Context, ensure};
 use clap::{Args, Parser, Subcommand};
+
+const MAX_TERMINAL_SEQUENCE_LEN: usize = 32;
 
 #[derive(Debug, Clone, Parser)]
 #[command(
@@ -91,24 +94,18 @@ impl Cli {
         }
     }
 
-    pub fn decoded_word_erase(&self) -> Vec<u8> {
-        decode_escaped_bytes(&self.run.word_erase)
+    pub fn decoded_word_erase(&self) -> anyhow::Result<Vec<u8>> {
+        decode_terminal_sequence(&self.run.word_erase, "--word-erase")
     }
 
-    pub fn decoded_backspace(&self) -> Vec<u8> {
-        self.run
-            .backspace
-            .as_deref()
-            .map(decode_escaped_bytes)
-            .unwrap_or_else(default_backspace)
+    pub fn decoded_backspace(&self) -> anyhow::Result<Vec<u8>> {
+        let value = self.run.backspace.as_deref().unwrap_or("\\x7f");
+        decode_terminal_sequence(value, "--backspace")
     }
 }
 
-fn default_backspace() -> Vec<u8> {
-    vec![0x7f]
-}
-
-fn decode_escaped_bytes(input: &str) -> Vec<u8> {
+fn decode_terminal_sequence(input: &str, option: &str) -> anyhow::Result<Vec<u8>> {
+    ensure!(!input.is_empty(), "{option} must not be empty");
     let mut out = Vec::new();
     let mut chars = input.chars().peekable();
 
@@ -125,25 +122,28 @@ fn decode_escaped_bytes(input: &str) -> Vec<u8> {
             Some('t') => out.push(b'\t'),
             Some('\\') => out.push(b'\\'),
             Some('x') => {
-                let hi = chars.next();
-                let lo = chars.next();
-                if let (Some(hi), Some(lo)) = (hi, lo) {
-                    let hex = [hi, lo].iter().collect::<String>();
-                    if let Ok(value) = u8::from_str_radix(&hex, 16) {
-                        out.push(value);
-                    }
-                }
+                let hi = chars
+                    .next()
+                    .with_context(|| format!("{option} has an incomplete \\x escape"))?;
+                let lo = chars
+                    .next()
+                    .with_context(|| format!("{option} has an incomplete \\x escape"))?;
+                let hex = [hi, lo].iter().collect::<String>();
+                let value = u8::from_str_radix(&hex, 16)
+                    .with_context(|| format!("{option} has an invalid \\x{hex} escape"))?;
+                out.push(value);
             }
-            Some(other) => {
-                out.push(b'\\');
-                let mut buf = [0; 4];
-                out.extend_from_slice(other.encode_utf8(&mut buf).as_bytes());
-            }
-            None => out.push(b'\\'),
+            Some(other) => anyhow::bail!("{option} has an unsupported \\{other} escape"),
+            None => anyhow::bail!("{option} has a trailing backslash"),
         }
     }
 
-    out
+    ensure!(!out.is_empty(), "{option} must encode at least one byte");
+    ensure!(
+        out.len() <= MAX_TERMINAL_SEQUENCE_LEN,
+        "{option} must encode at most {MAX_TERMINAL_SEQUENCE_LEN} bytes"
+    );
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -169,26 +169,38 @@ mod tests {
     #[test]
     fn default_word_erase_decodes_to_ctrl_w() {
         let cli = Cli::try_parse_from(["rterm", "--", "codex"]).unwrap();
-        assert_eq!(cli.decoded_word_erase(), vec![0x17]);
+        assert_eq!(cli.decoded_word_erase().unwrap(), vec![0x17]);
     }
 
     #[test]
     fn default_backspace_matches_the_vt_input_convention() {
         let cli = Cli::try_parse_from(["rterm", "--", "codex"]).unwrap();
-        assert_eq!(cli.decoded_backspace(), vec![0x7f]);
+        assert_eq!(cli.decoded_backspace().unwrap(), vec![0x7f]);
     }
 
     #[test]
     fn explicit_backspace_supports_escape_sequences() {
         let cli = Cli::try_parse_from(["rterm", "--backspace", "\\x7f", "--", "bash"]).unwrap();
-        assert_eq!(cli.decoded_backspace(), vec![0x7f]);
+        assert_eq!(cli.decoded_backspace().unwrap(), vec![0x7f]);
     }
 
     #[test]
     fn explicit_word_erase_supports_escape_sequences() {
         let cli =
             Cli::try_parse_from(["rterm", "--word-erase", "\\x1b\\x7f", "--", "bash"]).unwrap();
-        assert_eq!(cli.decoded_word_erase(), vec![0x1b, 0x7f]);
+        assert_eq!(cli.decoded_word_erase().unwrap(), vec![0x1b, 0x7f]);
+    }
+
+    #[test]
+    fn terminal_sequences_reject_malformed_or_empty_values() {
+        assert!(decode_terminal_sequence("", "--backspace").is_err());
+        assert!(decode_terminal_sequence("\\x", "--backspace").is_err());
+        assert!(decode_terminal_sequence("\\xZZ", "--backspace").is_err());
+        assert!(decode_terminal_sequence("\\q", "--word-erase").is_err());
+        assert!(
+            decode_terminal_sequence(&"a".repeat(MAX_TERMINAL_SEQUENCE_LEN + 1), "--backspace")
+                .is_err()
+        );
     }
 
     #[test]

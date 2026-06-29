@@ -1,6 +1,6 @@
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -29,7 +29,11 @@ pub struct SessionRecord {
 impl SessionRecord {
     fn from_config(config: &RunConfig) -> Self {
         let port = config.bind_addr.port();
-        let local_url = lan_ip::terminal_url(IpAddr::from([127, 0, 0, 1]), port, &config.token);
+        let local_url = lan_ip::terminal_url(
+            lan_ip::local_access_ip(config.bind_addr.ip()),
+            port,
+            &config.token,
+        );
         let lan_url = config
             .lan
             .then(|| {
@@ -270,5 +274,25 @@ mod tests {
     #[test]
     fn invalid_urls_fail_closed() {
         assert!(!probe_http_url("not-a-url").unwrap_or(false));
+    }
+
+    #[test]
+    fn record_uses_the_effective_listener_address() {
+        let config = RunConfig {
+            command: vec!["pwsh".to_string()],
+            bind_addr: "127.0.0.2:49152".parse().unwrap(),
+            lan: false,
+            web_write: false,
+            max_clients: 1,
+            once: false,
+            headless: true,
+            token: "abc".to_string(),
+            backspace: vec![0x7f],
+            word_erase: vec![0x17],
+        };
+
+        let record = SessionRecord::from_config(&config);
+
+        assert_eq!(record.local_url, "http://127.0.0.2:49152/t/abc".to_string());
     }
 }

@@ -138,6 +138,8 @@ rterm --backspace '\x08' -- bash
 ```
 
 This option supports the same escape syntax as `--word-erase`.
+Malformed, empty, or sequences longer than 32 encoded bytes are rejected
+instead of silently disabling the key.
 
 ## Session Modes
 

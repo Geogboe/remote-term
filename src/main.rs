@@ -7,6 +7,7 @@ use rterm::platform::command;
 use rterm::platform::{ctrl_c, elevation, lan_ip, wsl};
 use rterm::security::token;
 use rterm::session::{RunConfig, registry, run_session};
+use rterm::web::server;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -74,8 +75,8 @@ async fn run() -> anyhow::Result<u8> {
     }
 
     let bind_addr = cli.effective_bind();
-    let word_erase = cli.decoded_word_erase();
-    let backspace = cli.decoded_backspace();
+    let word_erase = cli.decoded_word_erase()?;
+    let backspace = cli.decoded_backspace()?;
     let run = cli.run;
     anyhow::ensure!(
         !run.command.is_empty(),
@@ -87,6 +88,12 @@ async fn run() -> anyhow::Result<u8> {
     }
     let token = run.token.clone().unwrap_or_else(token::generate);
 
+    let listener = server::bind(bind_addr)
+        .await
+        .with_context(|| format!("failed to bind web server at {bind_addr}"))?;
+    let bind_addr = listener
+        .local_addr()
+        .context("failed to determine the web server listener address")?;
     print_startup(&run, bind_addr, &token);
 
     let config = RunConfig {
@@ -102,7 +109,9 @@ async fn run() -> anyhow::Result<u8> {
         word_erase,
     };
 
-    run_session(config).await.context("terminal session failed")
+    run_session(config, listener)
+        .await
+        .context("terminal session failed")
 }
 
 fn run_cli_command(command: CliCommand) -> anyhow::Result<u8> {
@@ -137,7 +146,7 @@ fn run_cli_command(command: CliCommand) -> anyhow::Result<u8> {
 
 fn print_startup(cli: &RunArgs, bind_addr: std::net::SocketAddr, token: &str) {
     let local_url = lan_ip::terminal_url(
-        std::net::IpAddr::from([127, 0, 0, 1]),
+        lan_ip::local_access_ip(bind_addr.ip()),
         bind_addr.port(),
         token,
     );

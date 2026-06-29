@@ -106,8 +106,8 @@ fi
 
 ARCHIVE_ARCH="$ARCH"
 FALLBACK_ARCHIVE=""
-if [ "$OS" = "linux" ] && [ "$ARCH" = "amd64" ]; then
-  ARCHIVE_ARCH="amd64_musl"
+if [ "$OS" = "linux" ]; then
+  ARCHIVE_ARCH="${ARCH}_musl"
   FALLBACK_ARCHIVE="${BINARY}_${TAG}_${OS}_${ARCH}.tar.gz"
 fi
 

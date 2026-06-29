@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [int]$Port = 17844
+    [string]$BindAddress = '127.0.0.2',
+    [int]$Port = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +18,7 @@ try {
         '--headless',
         '--write',
         '--bind',
-        "127.0.0.1:$Port",
+        "${BindAddress}:$Port",
         '--',
         'pwsh',
         '-NoProfile',
@@ -51,7 +52,8 @@ try {
     }
 
     $session = $matching[0]
-    if ($session.local_url -notmatch '^http://127\.0\.0\.1:\d+/t/(?:[a-z]+-){4}[a-z]+$') {
+    $escapedAddress = [regex]::Escape($BindAddress)
+    if ($session.local_url -notmatch "^http://${escapedAddress}:[1-9]\d*/t/(?:[a-z]+-){4}[a-z]+$") {
         throw "unexpected generated session URL: $($session.local_url)"
     }
 

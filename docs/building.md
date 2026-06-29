@@ -25,6 +25,10 @@ task run -- bash
 
 rterm uses [Taskfile](https://taskfile.dev) for build orchestration.
 
+Linux release archives include musl builds for both x64 and ARM64. The shell
+installer prefers these portable archives and falls back to GNU/glibc builds.
+Native Linux CI compiles both musl release targets before a release tag is used.
+
 ### Development
 
 | Task | Description |

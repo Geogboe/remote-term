@@ -2,29 +2,29 @@
 
 ## Startup Sequence
 
-1. **CLI Parsing**: `clap` parses arguments and management subcommands.
+1. **CLI Parsing**: `clap` parses arguments and management subcommands; rterm rejects malformed terminal byte sequences.
 2. **Command Dispatch**: `rterm sessions` lists live per-user registry entries without starting a child.
 3. **Elevation Guard**: Session startup refuses root/elevated execution unless `--allow-elevated` is set.
 4. **Token Generation**: Five random EFF long-list words, or validated manual `--token`.
 5. **Bind Address Resolution**: If `--lan` and loopback bind, promotes to `0.0.0.0`.
-6. **Startup Print**: Outputs local URL, LAN URL (if `--lan`), mode, max clients, bind address, and WSL guidance.
-7. **Session Initialization**:
+6. **Listener Bind**: Binds the web listener and reads back its effective address so port `0` and specific-interface binds are published accurately.
+7. **Startup Print**: Outputs local URL, LAN URL (if `--lan`), mode, max clients, effective bind address, and WSL guidance.
+8. **Session Initialization**:
    - Creates `mpsc::unbounded_channel` for PTY input
    - Creates `SessionState` with shared config and channels
-   - Binds TCP listener for the web server
-8. **Registry Publication**: Atomically publishes a per-user active-session record before spawning the child.
-9. **Raw Terminal Mode**: If not headless, enters crossterm raw mode via RAII guard.
-10. **Local Bridge**: If not headless and on an interactive terminal:
+9. **Registry Publication**: Atomically publishes a per-user active-session record using the effective listener address before spawning the child.
+10. **Raw Terminal Mode**: If not headless, enters crossterm raw mode via RAII guard.
+11. **Local Bridge**: If not headless and on an interactive terminal:
    - Spawns stdin reader thread (reads bytes, sends to PTY input channel)
    - Spawns stdout writer task (async, receives from broadcast and writes to stdout)
-11. **PTY Spawn**:
+12. **PTY Spawn**:
    - Allocates PTY via `portable-pty`
    - Sets the PTY child working directory to rterm's current directory
    - Spawns child process by re-executing rterm itself with `__rterm-child <marker> -- <command>`
    - On Windows, installs a helper-only Ctrl+C handler so the wrapper survives while the real child handles the interrupt
    - Starts four background threads: reader, writer, child-waiter, exit-file-watcher
-12. **Resize Watcher**: If not headless, polls terminal size every 250ms.
-13. **Web Server**: Spawns axum server on the TCP listener.
+13. **Resize Watcher**: If not headless, polls terminal size every 250ms.
+14. **Web Server**: Spawns axum server on the TCP listener.
 
 ## Running State
 

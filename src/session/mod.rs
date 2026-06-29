@@ -117,12 +117,12 @@ impl Drop for ClientPermit {
     }
 }
 
-pub async fn run_session(config: RunConfig) -> anyhow::Result<u8> {
+pub async fn run_session(
+    config: RunConfig,
+    listener: tokio::net::TcpListener,
+) -> anyhow::Result<u8> {
     let (input_tx, input_rx) = mpsc::unbounded_channel();
     let state = SessionState::new(&config, input_tx.clone());
-    let listener = server::bind(config.bind_addr)
-        .await
-        .with_context(|| format!("failed to bind web server at {}", config.bind_addr))?;
     let _registration = registry::register(&config)?;
     let synthesize_terminal_responses = config.headless || !raw_terminal::is_interactive_terminal();
 

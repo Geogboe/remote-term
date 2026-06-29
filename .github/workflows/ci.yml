@@ -19,8 +19,10 @@ jobs:
         include:
           - name: Linux x64
             runner: ubuntu-latest
+            musl_target: x86_64-unknown-linux-musl
           - name: Linux arm64
             runner: ubuntu-24.04-arm
+            musl_target: aarch64-unknown-linux-musl
           - name: Windows x64
             runner: windows-latest
           - name: Windows arm64
@@ -45,3 +47,14 @@ jobs:
 
       - name: Validate
         run: task ci
+
+      - name: Install musl build support
+        if: runner.os == 'Linux'
+        run: |
+          rustup target add "${{ matrix.musl_target }}"
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Validate portable Linux release target
+        if: runner.os == 'Linux'
+        run: cargo build --release --locked --target "${{ matrix.musl_target }}"

@@ -121,7 +121,7 @@ Core session coordinator. Contains:
 - **`PtyCommand`**: Enum for commands sent to the PTY writer (`Input(Vec<u8>)`, `Resize { cols, rows }`).
 - **`SessionState`**: Shared state between all session components. Contains token, write mode, client limits, channels (input/output), scrollback buffer, and atomic counters for active clients and closed-to-new-clients flag.
 - **`ClientPermit`**: RAII guard. Acquired when a browser connects, released on drop. Enforces `max_clients` and `--once` behavior.
-- **`run_session()`**: Main orchestrator. Sets up channels, spawns the PTY, starts local bridge (if not headless), starts resize watcher (if not headless), starts the web server, waits for exit, and tears down all tasks.
+- **`run_session()`**: Main orchestrator. Receives the already-bound listener so the effective address and ephemeral port can be published accurately, sets up channels, spawns the PTY, starts local bridge (if not headless), starts resize watcher (if not headless), starts the web server, waits for exit, and tears down all tasks.
 
 ### `session::registry`
 

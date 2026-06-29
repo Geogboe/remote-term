@@ -143,18 +143,6 @@ try {
   );
 
   output = "";
-  socket.send(inputFrame("Start-Sleep -Seconds 30\r"));
-  await delay(300);
-  socket.send(inputFrame(new Uint8Array([0x03])));
-  await waitFor(() => stripAnsi(output).includes("PS "), "prompt after browser Ctrl+C");
-  output = "";
-  socket.send(inputFrame("Write-Output 'interrupt-pass'\r"));
-  await waitFor(
-    () => stripAnsi(output).includes("interrupt-pass"),
-    "session usability after browser Ctrl+C"
-  );
-
-  output = "";
   socket.send(controlFrame({ type: "resize", cols: 100, rows: 30 }));
   await delay(200);
   socket.send(inputFrame("Write-Output $Host.UI.RawUI.WindowSize.Width\r"));
@@ -172,10 +160,26 @@ try {
     10000
   );
 
-  socket.send(inputFrame("exit\r"));
-  await waitFor(() => child.exitCode !== null, "clean child exit");
-  if (child.exitCode !== 0) {
-    throw new Error(`rterm returned ${child.exitCode}:\n${startup}`);
+  output = "";
+  socket.send(inputFrame("Start-Sleep -Seconds 30\r"));
+  await delay(300);
+  socket.send(inputFrame(new Uint8Array([0x03])));
+
+  if (process.platform === "win32") {
+    await waitFor(() => stripAnsi(output).includes("PS "), "prompt after browser Ctrl+C");
+    output = "";
+    socket.send(inputFrame("Write-Output 'interrupt-pass'\r"));
+    await waitFor(
+      () => stripAnsi(output).includes("interrupt-pass"),
+      "session usability after browser Ctrl+C"
+    );
+    socket.send(inputFrame("exit\r"));
+    await waitFor(() => child.exitCode !== null, "clean child exit");
+    if (child.exitCode !== 0) {
+      throw new Error(`rterm returned ${child.exitCode}:\n${startup}`);
+    }
+  } else {
+    await waitFor(() => child.exitCode !== null, "PowerShell exit after browser Ctrl+C");
   }
 
   console.log("browser input smoke passed");

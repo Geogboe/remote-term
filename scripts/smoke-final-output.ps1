@@ -10,7 +10,7 @@ $binary = (Resolve-Path (Join-Path $PSScriptRoot "../target/debug/$binaryName"))
 $marker = 'final-output-marker'
 
 for ($run = 1; $run -le $Runs; $run++) {
-    $output = & $binary --bind '127.0.0.1:0' -- pwsh -NoProfile -Command "Write-Output '$marker'" | Out-String
+    $output = & $binary --allow-elevated --bind '127.0.0.1:0' -- pwsh -NoProfile -Command "Write-Output '$marker'" | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "short-lived child failed on run $run"
     }

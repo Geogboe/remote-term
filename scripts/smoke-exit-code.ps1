@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Continue'
 $binaryName = if ($IsWindows) { 'rterm.exe' } else { 'rterm' }
 $binary = Join-Path $PSScriptRoot "../target/debug/$binaryName"
 
-& $binary -- pwsh -NoProfile -Command 'Write-Output rterm-smoke; exit 7'
+& $binary --allow-elevated -- pwsh -NoProfile -Command 'Write-Output rterm-smoke; exit 7'
 $childExit = $LASTEXITCODE
 
 if ($childExit -ne 7) {

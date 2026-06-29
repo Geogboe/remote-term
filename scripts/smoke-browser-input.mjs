@@ -12,6 +12,7 @@ const binary = path.resolve(
 const child = spawn(
   binary,
   [
+    "--allow-elevated",
     "--headless",
     "--write",
     "--bind",

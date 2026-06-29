@@ -15,6 +15,7 @@ $process = $null
 try {
     Remove-Item -LiteralPath $stdout, $stderr -ErrorAction SilentlyContinue
     $arguments = @(
+        '--allow-elevated',
         '--headless',
         '--write',
         '--bind',

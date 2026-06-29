@@ -10,6 +10,7 @@ $errLog = Join-Path $env:TEMP 'rterm-smoke-web.err.log'
 Remove-Item -LiteralPath $outLog, $errLog -ErrorAction SilentlyContinue
 
 $arguments = @(
+  '--allow-elevated',
   '--bind', "127.0.0.1:$port",
   '--token', $token,
   '--write',

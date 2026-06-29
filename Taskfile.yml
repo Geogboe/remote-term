@@ -96,7 +96,7 @@ tasks:
   smoke:
     desc: Run a child exit-code smoke test
     cmds:
-      - cargo run -- -- {{.SMOKE_COMMAND}}
+      - cargo run -- --allow-elevated -- {{.SMOKE_COMMAND}}
 
   smoke:exit-code:
     desc: Run a child exit-code propagation smoke test
